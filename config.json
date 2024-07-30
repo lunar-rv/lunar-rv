@@ -1,0 +1,21 @@
+{
+    "WARMUP_TIME": 3,
+    "BATCH_SIZE": 96,
+    "ANOMALY_SIZE": 0.001,
+    "DECISION_BOUNDARY": 0,
+    "NUM_SENSORS": 54,
+    "OPERATORS": "FG_",
+    "WARMUP_ANOMALIES": 2,
+    "PLOT_ANOMALY_GRAPHS": false,
+    "INVARIANCE": true,
+    "MODEL": "LinearRegression()",
+    "SPEC_FILE": "spec.stl",
+    "RESIDUALS_FILE": "csv/predictions.csv",
+    "SAFE_TRACE_FILE": "csv/input.csv",
+    "SOURCE_FILE": "csv/reversed.csv",
+    "ANOMALIES_FILE": "csv/anomalies.csv",
+    "TREE_CONFIG": {
+        "MAX_DEPTH": 5,
+        "BETA": 5
+    }
+  }

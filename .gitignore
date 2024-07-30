@@ -1,0 +1,6 @@
+archive/
+synth.log
+tmp.py
+__pycache__
+csv/*
+tree/__pycache__
