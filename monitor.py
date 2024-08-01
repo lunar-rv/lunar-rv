@@ -1,4 +1,6 @@
-from ui import read_user_input, read_anomaly_type, parse_input_args, print_trees, progress_bar
+
+
+from ui import read_user_input, read_anomaly_type, parse_input_args, print_trees, progress_bar, show_weights
 from file_io import clear_files, write_header, get_new_batch, write_new_batch
 from model import get_residuals, update_spec, log_anomaly, new_batch_ok
 import json
@@ -22,6 +24,9 @@ def monitor_loop(args) -> None:
             exit()
         if response == "p":
             print_trees(bin_classifier=bin_classifier, anom_classifier=anom_classifier)
+            continue
+        if response == "w":
+            show_weights(sensor_index=0)
             continue
         anomaly_type = read_anomaly_type() if response == "a" else None
         new_batch = get_new_batch(

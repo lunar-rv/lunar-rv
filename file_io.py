@@ -1,4 +1,6 @@
 import json
+import numpy as np
+
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
 
@@ -33,3 +35,7 @@ def write_new_batch(new_batch, outfile) -> None:
     with open(outfile, "a") as i:
         i.write("\n")
         i.writelines(new_batch)
+
+def write_weights(model, filename=config["WEIGHTS_FILE"]) -> None:
+    weights = model.coef_[:26]
+    np.savetxt(filename, weights, delimiter=",")

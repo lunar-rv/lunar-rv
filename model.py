@@ -18,14 +18,14 @@ REQUIREMENTS:
 
 ##### IMPORTS #####
 from preproc import preprocess
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression # this is NOT unused
 import numpy as np
 from synth import positive_synth
 from graphs import plot_array
 from tree.tree import TreeNode
 from tree.bin_class import build, update
 import warnings
-from file_io import write_new_batch
+from file_io import write_new_batch, write_weights
 import json
 
 with open('config.json', 'r') as file:
@@ -47,6 +47,7 @@ def apply_anomaly(
     return dataset
 
 
+
 def get_residuals(
     new_batch, safe_trace_file=config["SAFE_TRACE_FILE"], sensor_index=0, anomaly_type=None
 ) -> None:
@@ -62,6 +63,7 @@ def get_residuals(
     X_test, Y_test = X_Y_split(test, sensor_index)
     MODEL = eval(config["MODEL"])
     MODEL.fit(X_train, Y_train)
+    write_weights(MODEL)
     predictions = MODEL.predict(X_test)
     abs_residuals = np.abs(predictions - Y_test) * 1000
     return abs_residuals
@@ -85,14 +87,15 @@ def update_spec(
 ) -> tuple:
     negative_traces = np.genfromtxt(residuals_file, delimiter=",", dtype=float)
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
+    use_mean = config["USE_MEAN"]
     if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
-        spec = positive_synth(operators=operators, traces=negative_traces[:, np.newaxis, :], invariance=invariance)
+        spec = positive_synth(operators=operators, traces=negative_traces[:, np.newaxis, :], invariance=invariance, use_mean=use_mean)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
-        bin_classifier = build(negative_traces, positive_values, invariance=invariance)
+        bin_classifier = build(negative_traces, positive_values, invariance=invariance, use_mean=use_mean)
         spec = bin_classifier.formula
     else:
-        bin_classifier = update(bin_classifier, new_trace, new_label, invariance=invariance)
+        bin_classifier = update(bin_classifier, new_trace, new_label, invariance=invariance, use_mean=use_mean)
         spec = bin_classifier.formula
     with open(spec_file, "r+") as s:
         old_spec = s.read()

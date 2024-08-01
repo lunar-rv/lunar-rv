@@ -33,9 +33,13 @@ class Formula:
             raise ValueError(f"Unknown operator: {operator}")
 
     @staticmethod
-    def list_options(operators="FG_", boundaries=None, binary=True, invariance=False):
+    def list_options(operators="FG_", boundaries=None, binary=True, invariance=False, use_mean=True):
+        print(invariance, use_mean)
         if invariance:
-            return [(b, 1, "G") for b in boundaries]
+            if use_mean:
+                return [(b, 1, "G") for b in boundaries]
+            else:
+                return [(b, 96, "G") for b in boundaries]
         all_options = []
         time_period = config["BATCH_SIZE"]
         def add_options(end, op, b=None):
@@ -119,8 +123,6 @@ class Eventually(Formula):
 
     @property
     def spec(self):
-        if self.end == 1:
-            return f"mean error {self.sign} {self.boundary}"
         return f"eventually[0:{self.end}](error {self.sign} {self.boundary})"
     
     def evaluate_interval(self, traces):
@@ -144,9 +146,11 @@ class Always(Formula):
 
     @property
     def spec(self):
-        if self.end == 1:
+        if self.end == 1 and config["USE_MEAN"]:
             return f"mean error {self.sign} {self.boundary}"
-        return f"always[0:{self.end} s](P {self.sign} {self.boundary})"
+        if self.end == 96 and not config["USE_MEAN"]:
+            return f"always (error {self.sign} {self.boundary})"
+        return f"always[0:{self.end} s](error {self.sign} {self.boundary})"
     
     def evaluate_interval(self, traces):
         split_traces = traces.reshape(traces.shape[0], -1, self.end)

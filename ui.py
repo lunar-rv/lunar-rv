@@ -1,6 +1,9 @@
 import argparse
 import sys
 import json
+import numpy as np
+import matplotlib.pyplot as plt
+
 with open('config.json', 'r') as file:
     config = json.load(file)
 
@@ -8,7 +11,7 @@ def read_user_input(prompt=">") -> str:
     response = input(prompt)
     if not response:
         return "c"
-    if response.lower() in "apq":
+    if response.lower() in "apqw":
         return response.lower()
     return read_user_input(prompt=prompt)
 
@@ -109,3 +112,26 @@ def progress_bar(index, warmup_stage: int, bar_length=40):
     text = f"\rWarmup {warmup_stage}: Press Enter to continue... [{index}/{config['WARMUP_TIME']}] [{'#' * block + '-' * (bar_length - block)}]"
     sys.stdout.write(text)
     sys.stdout.flush()
+
+def show_weights(sensor_index, weights_file=config["WEIGHTS_FILE"]) -> None:
+    weights = np.genfromtxt(weights_file)
+    def weight_to_color(weight, max_positive_weight, max_negative_weight):
+        if weight >= 0:
+            normalized_weight = weight / max_positive_weight
+            return plt.cm.Reds(normalized_weight)
+        else:
+            normalized_weight = -weight / max_negative_weight
+            return plt.cm.Blues(normalized_weight)
+    max_positive_weight = max(weights.max(), 1e-10)
+    max_negative_weight = max(-weights.min(), 1e-10)
+    colours = [weight_to_color(w, max_positive_weight, max_negative_weight) for w in weights]
+    feature_labels = np.delete(np.arange(len(weights) + 1), sensor_index) + 1
+    plt.figure(figsize=(8, 5))
+    plt.bar(feature_labels, weights, color=colours)
+    plt.xlabel('Feature Index')
+    plt.ylabel('Weights')
+    plt.title('Model Weights')
+    plt.grid(True)
+    plt.xticks(feature_labels)
+    plt.savefig(config["WEIGHTS_GRAPH_FILE"])
+    plt.show()

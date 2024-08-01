@@ -34,10 +34,11 @@ def default_best():
     return {"interval": -1, "value": np.inf, "op": "", "threshold": -1}
 
 
-def positive_synth(traces, best=default_best(), operators="FG_", invariance=False):
+def positive_synth(traces, best=default_best(), operators="FG_", invariance=False, use_mean=True):
     if invariance:
-        max_threshold = traces.mean(axis=2).max()
-        return Formula.build_formula(max_threshold, "G", 1)
+        max_threshold = traces.mean(axis=2).max() if use_mean else traces.max()
+        boundary = 1 if use_mean else 96
+        return Formula.build_formula(max_threshold, "G", boundary)
     if "F" in operators:
         ev_rob = np.min(traces, axis=1)  # Pick the best value
         ev_mean_rob = ev_rob.mean(axis=1)
