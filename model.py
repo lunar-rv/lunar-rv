@@ -16,9 +16,8 @@ REQUIREMENTS:
 
 """
 
-##### IMPORTS #####
+##### IMPORTS #####int
 from preproc import preprocess
-from sklearn.linear_model import LinearRegression # this is NOT unused
 import numpy as np
 from synth import positive_synth
 from graphs import plot_array
@@ -27,6 +26,12 @@ from tree.bin_class import build, update
 import warnings
 from file_io import write_new_batch, write_weights
 import json
+from scipy import stats
+from regressor import LargeWeightsRegressor
+from ui import print_anomaly_info
+
+model = LargeWeightsRegressor()
+# model = eval(config["MODEL"])
 
 with open('config.json', 'r') as file:
     config = json.load(file)
@@ -61,17 +66,29 @@ def get_residuals(
         test = apply_anomaly(test, anomaly_type, sensor_index)
     X_train, Y_train = X_Y_split(train, sensor_index)
     X_test, Y_test = X_Y_split(test, sensor_index)
-    MODEL = eval(config["MODEL"])
-    MODEL.fit(X_train, Y_train)
-    write_weights(MODEL)
-    predictions = MODEL.predict(X_test)
-    abs_residuals = np.abs(predictions - Y_test) * 1000
+    model.set_sensor_index(sensor_index)
+    model.fit(X_train, Y_train)
+    write_weights(model)
+    predictions = model.predict(X_test)
+    abs_residuals = np.abs(predictions - Y_test) * 1000 
     return abs_residuals
 
-def new_batch_ok(residuals, formula=None) -> bool:
+def get_safety_prob(mean_rob: float, safe_residuals_file: str = config["RESIDUALS_FILE"]):
+    safe_traces = np.genfromtxt(safe_residuals_file, delimiter=",", dtype=float)
+    sigma = np.std(safe_traces)
+    mu = np.mean(safe_traces)
+    return stats.norm.cdf(mean_rob, mu, sigma)
+
+def new_batch_ok(residuals, formula=None, new_batch: list = None, ) -> bool:
     if formula:
-        classification = formula.evaluate(residuals.reshape(1, -1), labels=False)
-        if classification[0] < 0:
+        classification = formula.evaluate(residuals.reshape(1, -1), labels=False)[0]
+        safety_prob = get_safety_prob(classification)
+        rounded_rob = np.round(classification, 4)
+        print("Robustness: ", rounded_rob)
+        print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
+        print(f"Minimum threshold: {np.round(get_safety_prob(0), 4)}")
+        if classification < 0:
+            print_anomaly_info(model, new_batch)
             return False
     return True
 
@@ -153,4 +170,16 @@ def log_anomaly(
         print("\nPress Enter to continue (or q to quit) ")
     return tree
 
+def main():
+    # spec, bin_classifier = update_spec(residuals_file="csv/test_predictions.csv")
+    # import random
+    # spec.evaluate(new_trace.reshape(1, -1), labels=False)
+    # print("SPEC:", spec)
+    # print("Classifier:", bin_classifier)
+    from ui import plot_graph
+    plot_graph()
 
+
+
+if __name__ == "__main__":
+    main()

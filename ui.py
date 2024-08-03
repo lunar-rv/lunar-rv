@@ -3,6 +3,9 @@ import sys
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+import networkx as nx
+from regressor import LargeWeightsRegressor
+from preproc import preprocess
 
 with open('config.json', 'r') as file:
     config = json.load(file)
@@ -11,7 +14,7 @@ def read_user_input(prompt=">") -> str:
     response = input(prompt)
     if not response:
         return "c"
-    if response.lower() in "apqw":
+    if response.lower() in "apqwg":
         return response.lower()
     return read_user_input(prompt=prompt)
 
@@ -135,3 +138,53 @@ def show_weights(sensor_index, weights_file=config["WEIGHTS_FILE"]) -> None:
     plt.xticks(feature_labels)
     plt.savefig(config["WEIGHTS_GRAPH_FILE"])
     plt.show()
+
+def get_graph(safe_trace_file=config["SAFE_TRACE_FILE"]):
+    all_weights = []
+    all_edges = []
+    data = preprocess(safe_trace_file)[:, 27:]  # Ensure correct slicing to get data
+    model = LargeWeightsRegressor(sensor_index=0)
+    for sensor_index in range(27):
+        model.set_sensor_index(sensor_index)
+        X = np.delete(data, sensor_index, axis=1)
+        y = data[:, sensor_index].astype(float)
+        model.fit(X, y)
+        weights = model.coef_
+        edges = model.sensors_used
+        all_weights.append(weights)
+        all_edges.append(edges)
+    return all_weights, all_edges
+
+def plot_graph(name="pressures.png"):
+    weights, edges = get_graph()
+    G = nx.DiGraph()
+    for i, edge_array in enumerate(edges):
+        for j, edge in enumerate(edge_array):
+            if i in edges[edge]:
+                weight_to_i = weights[edge][np.where(edges[edge] == i)[0][0]]
+                weight_to_edge = weights[i][j]
+                G.add_edge(f"S{edge+1}", f"S{i+1}", weight=np.round(weight_to_i, 3))
+                G.add_edge(f"S{i+1}", f"S{edge+1}", weight=np.round(weight_to_edge, 3))
+    for i in range(len(edges)):
+        G.add_node(f"S{i+1}")
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos, with_labels=True, node_color='red', node_size=500, font_size=10, font_color='white')
+    labels = nx.get_edge_attributes(G, 'weight')
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    plt.title("Bidirectional Weighted Graph")
+    plt.savefig("temperatures.png")
+    plt.show()
+
+def print_anomaly_info(model, new_batch):
+    print("\nAnomaly detected!\n")
+    data = preprocess("".join(new_batch), csv=False)
+    X = np.delete(data, model.sensor_index, axis=1)
+    y = data[:, model.sensor_index].astype(float)
+    predictions = model.predict(X)
+    print(f"Sensor {model.sensor_index+1} was calculated as:")
+    for i, (weight, index) in enumerate(zip(model.coef_, model.indices_used)):
+        start = "\t" if i == 0 else " \t\+ "
+        print(f"{start}Sensor {index+1} x {weight}")
+    print(f"Predicted average was {predictions.mean()}")
+    print(f"Actual average was {y.mean()}")
+    print("Note that the STL formula is used to determine anomalies - the average is simply an indicator of the error size")

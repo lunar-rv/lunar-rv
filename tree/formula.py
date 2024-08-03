@@ -34,7 +34,6 @@ class Formula:
 
     @staticmethod
     def list_options(operators="FG_", boundaries=None, binary=True, invariance=False, use_mean=True):
-        print(invariance, use_mean)
         if invariance:
             if use_mean:
                 return [(b, 1, "G") for b in boundaries]
@@ -117,7 +116,22 @@ class Basic(Formula):
         return np.mean(self.boundary - traces, axis=1)
 
 
-class Eventually(Formula):
+class BoundedFormula(Formula, ABC):
+    def __init__(self, boundary, sign=">=", end=None):
+        super().__init__(boundary, sign, end)
+    @abstractmethod
+    def evaluate_interval(self, traces):
+        pass
+    def evaluate(self, traces, labels=True):
+        traces = traces[:, :-1].astype(float) if labels else traces
+        values = self.evaluate_interval(traces)
+        for i in range(1, self.end):
+            j = self.end - i
+            cut_traces = traces[:, i:-j]
+            values = np.hstack((values, self.evaluate_interval(cut_traces)))
+        return values.mean(axis=1)
+
+class Eventually(BoundedFormula):
     def __init__(self, boundary, end: int, sign=">="):
         super().__init__(boundary, sign, end)
 
@@ -129,18 +143,8 @@ class Eventually(Formula):
         split_traces = traces.reshape(traces.shape[0], -1, self.end)
         values = self.boundary - np.min(split_traces, axis=2)
         return values
-    
-    def evaluate(self, traces, labels=True):
-        traces = traces[:, :-1].astype(float) if labels else traces
-        values = self.evaluate_interval(traces)
-        for i in range(1, self.end):
-            j = self.end - i
-            cut_traces = traces[:, i:-j]
-            values = np.hstack((values, self.evaluate_interval(cut_traces)))
-        return values.mean(axis=1)
 
-
-class Always(Formula):
+class Always(BoundedFormula):
     def __init__(self, boundary, end: int, sign=">="):
         super().__init__(boundary, sign=sign, end=end)
 
@@ -157,16 +161,23 @@ class Always(Formula):
         values = self.boundary - np.max(split_traces, axis=2)
         return values
     
-    def evaluate(self, traces, labels=True):
-        traces = traces[:, :-1].astype(float) if labels else traces
-        values = self.evaluate_interval(traces)
-        for i in range(1, self.end):
-            j = self.end - i
-            cut_traces = traces[:, i:-j]
-            values = np.hstack((values, self.evaluate_interval(cut_traces)))
-        return values.mean(axis=1)
-    
 def main():
-    pass
+    import random
+    safe_traces = np.array([[random.gauss(2, 1) for _ in range(100)] for _ in range(5)])
+    formula = Formula.build_formula(1.5, "F", 3)
+    print(formula.evaluate(safe_traces))
 if __name__ == "__main__":
-    main()
+
+    # main()
+    class A:
+        def __init__(self):
+            self.a = 1
+    class B(A):
+        def __init__(self):
+            self.b = 2
+    class C(B):
+        def __init__(self):
+            super.super().__init__()
+            self.c = 3
+    c = C()
+    print(c.a)

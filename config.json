@@ -6,7 +6,7 @@
     "NUM_SENSORS": 54,
     "OPERATORS": "FG_",
     "WARMUP_ANOMALIES": 20,
-    "PLOT_ANOMALY_GRAPHS": true,
+    "PLOT_ANOMALY_GRAPHS": false,
     "INVARIANCE": false,
     "USE_MEAN": false,
     "MODEL": "LinearRegression()",
@@ -17,6 +17,7 @@
     "ANOMALIES_FILE": "csv/anomalies.csv",
     "WEIGHTS_GRAPH_FILE": "images/weights.png",
     "WEIGHTS_FILE": "csv/weights.csv",
+    "LOG_FILE": "log.txt",
     "TREE_CONFIG": {
         "MAX_DEPTH": 5,
         "BETA": 5

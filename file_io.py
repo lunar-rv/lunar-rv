@@ -39,3 +39,16 @@ def write_new_batch(new_batch, outfile) -> None:
 def write_weights(model, filename=config["WEIGHTS_FILE"]) -> None:
     weights = model.coef_[:26]
     np.savetxt(filename, weights, delimiter=",")
+
+def end_anomaly(new_batch: list, sensor_index: int):
+    first_reading = new_batch[0]
+    date = first_reading.split(";")[1]
+    with open(config["LOG_FILE"], "a") as log:
+        log.write(f"Anomaly at sensor {sensor_index} resolved at {date}\n")
+    exit()
+
+def start_anomaly(new_batch: list, sensor_index: int):
+    first_reading = new_batch[0]
+    date = first_reading.split(";")[1]
+    with open(config["LOG_FILE"], "a") as log:
+        log.write(f"Anomaly at sensor {sensor_index} detected at {date}\n")

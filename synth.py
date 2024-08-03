@@ -33,6 +33,8 @@ def classify_traces(traces, phi, plot_rob=False):
 def default_best():
     return {"interval": -1, "value": np.inf, "op": "", "threshold": -1}
 
+def closeness(arr: np.ndarray) -> float:
+    return arr.ptp()
 
 def positive_synth(traces, best=default_best(), operators="FG_", invariance=False, use_mean=True):
     if invariance:
@@ -42,20 +44,19 @@ def positive_synth(traces, best=default_best(), operators="FG_", invariance=Fals
     if "F" in operators:
         ev_rob = np.min(traces, axis=1)  # Pick the best value
         ev_mean_rob = ev_rob.mean(axis=1)
-        ev_value = ev_mean_rob.ptp()
+        ev_value = closeness(ev_mean_rob)
     else:
         ev_mean_rob, ev_value = np.inf, np.inf
     if "G" in operators:
         alw_rob = np.max(traces, axis=1)  # Pick the worst value
         alw_mean_rob = alw_rob.mean(axis=1)
-        alw_value = alw_mean_rob.ptp()
+        alw_value = closeness(alw_mean_rob)
     else:
         alw_mean_rob, alw_value = np.inf, np.inf
     if ev_value > alw_value:
         value, op, threshold = ev_value, "F", ev_mean_rob.max()
     else:
         value, op, threshold = alw_value, "G", alw_mean_rob.max()
-    value, op, threshold = ev_value, "F", ev_mean_rob.max()
     if value < best["value"]:
         best["value"] = value
         best["interval"] = traces.shape[1]

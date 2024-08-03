@@ -1,7 +1,7 @@
 
 
-from ui import read_user_input, read_anomaly_type, parse_input_args, print_trees, progress_bar, show_weights
-from file_io import clear_files, write_header, get_new_batch, write_new_batch
+from ui import read_user_input, read_anomaly_type, parse_input_args, print_trees, progress_bar, show_weights, plot_graph
+from file_io import clear_files, write_header, get_new_batch, write_new_batch, end_anomaly, start_anomaly
 from model import get_residuals, update_spec, log_anomaly, new_batch_ok
 import json
 with open("config.json", 'r') as config_file:
@@ -16,6 +16,7 @@ def monitor_loop(args) -> None:
     formula = None
     bin_classifier = None
     progress_bar(index=0, warmup_stage=1)
+    last_reading_safe: bool = True
     while True:
         prompt = "" if warmup1 or warmup2 else ">"
         response = read_user_input(prompt)
@@ -27,6 +28,9 @@ def monitor_loop(args) -> None:
             continue
         if response == "w":
             show_weights(sensor_index=0)
+            continue
+        if response == "g":
+            plot_graph()
             continue
         anomaly_type = read_anomaly_type() if response == "a" else None
         new_batch = get_new_batch(
@@ -53,8 +57,9 @@ def monitor_loop(args) -> None:
                 anomaly_type=anomaly_type,
             )
             new_trace = ",".join(residuals.astype(str))
-            if not new_batch_ok(residuals=residuals, formula=formula):
-                print("Anomaly detected!")
+            if not new_batch_ok(residuals=residuals, formula=formula, new_batch=new_batch):
+                start_anomaly(new_batch, sensor_index + 1)
+                last_reading_safe = False
                 grow_tree: bool = not anom_classifier and not warmup2
                 anom_classifier = log_anomaly(
                     new_batch, new_trace, sensor_index + 1, anom_classifier, grow_tree
@@ -68,6 +73,9 @@ def monitor_loop(args) -> None:
                     new_label="Anomaly",
                 )
                 continue
+            if not last_reading_safe:
+                end_anomaly(new_batch, sensor_index + 1)
+                last_reading_safe = True
             write_new_batch(new_batch=new_batch, outfile=args.safe_trace_file)
             with open(args.residuals_file, "a") as f:
                 f.write("\n" + new_trace)
@@ -90,7 +98,7 @@ def monitor_loop(args) -> None:
 def main() -> None:
     args = parse_input_args()
     write_header(args.source_file, args.safe_trace_file)
-    clear_files(config["SPEC_FILE"], config["RESIDUALS_FILE"], config["ANOMALIES_FILE"])
+    clear_files(config["LOG_FILE"], config["SPEC_FILE"], config["RESIDUALS_FILE"], config["ANOMALIES_FILE"])
     print("Welcome to the online sensor monitor using linear regression and STL")
     print("Press Enter to read next batch, q to quit, a to add an anomaly: ")
     monitor_loop(args)
