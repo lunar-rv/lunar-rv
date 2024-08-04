@@ -2,6 +2,6 @@ archive/
 synth.log
 tmp.py
 __pycache__
-csv/*
+inputs/*
 tree/__pycache__
 outputs/*
