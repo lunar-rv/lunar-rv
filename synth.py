@@ -32,38 +32,44 @@ def classify_traces(traces, phi, plot_rob=False):
     return classifications
 
 
-def closeness(arr: np.ndarray) -> float:
-    return arr.ptp()
-
-def positive_synth(traces, interval=-1, best_value=np.inf, best_op="", best_threshold=-1, operators="FG_", invariance=False, use_mean=True):
+def weighted_closeness(arr: np.ndarray, interval: int, operator=None, trace_length=-1) -> float:
+    contraction_fn = lambda r, size: r * (1 + config["GAMMA"] * np.exp(0.5 - size))
+    expansion_fn = lambda r, size: r  * (1 + config["GAMMA"] * np.exp(size - 0.5))
+    score = -arr.ptp() # Aim to maximise score
+    proportion = np.log(interval) / np.log(trace_length)
+    result = contraction_fn(score, proportion) if operator=="F" else expansion_fn(score, proportion)
+    return result
+    
+def positive_synth(traces, interval=1, best_value=-np.inf, best_op="", best_threshold=-1, operators="FG_", invariance=False, use_mean=True):
+    trace_length = traces.size // traces.shape[0]
     if invariance:
-        max_threshold = traces.mean(axis=2).max() if use_mean else traces.max()
+        max_threshold = traces.mean(axis=1).max() if use_mean else traces.max()
         boundary = 1 if use_mean else config["BATCH_SIZE"]
         return Formula.build_formula(max_threshold, "G", boundary)
     if "F" in operators:
-        ev_rob = np.min(traces, axis=1)  # Pick the best value
+        ev_rob = np.min(traces, axis=2)  # Pick the best value
         ev_mean_rob = ev_rob.mean(axis=1)
-        ev_value = closeness(ev_mean_rob)
+        ev_value = weighted_closeness(ev_mean_rob, traces.shape[2], operator="F", trace_length=trace_length)
     else:
         ev_mean_rob, ev_value = np.inf, np.inf
     if "G" in operators:
-        alw_rob = np.max(traces, axis=1)  # Pick the worst value
+        alw_rob = np.max(traces, axis=2)  # Pick the worst value
         alw_mean_rob = alw_rob.mean(axis=1)
-        alw_value = closeness(alw_mean_rob)
+        alw_value = weighted_closeness(alw_mean_rob, traces.shape[2], operator="G", trace_length=trace_length)
     else:
         alw_mean_rob, alw_value = np.inf, np.inf
     if ev_value > alw_value:
         value, op, threshold = ev_value, "F", ev_mean_rob.max()
     else:
         value, op, threshold = alw_value, "G", alw_mean_rob.max()
-    if value < best_value:
+    if value > best_value:
         best_value = value
-        interval = traces.shape[1]
+        interval = traces.shape[2]
         best_op = op
         best_threshold = threshold
-    if traces.shape[2] % 2 != 0:
+    if traces.shape[1] % 2 != 0:
         return Formula.build_formula(best_threshold, best_op, interval)
-    new_shape = (-1, traces.shape[1] * 2, traces.shape[2] // 2)
+    new_shape = (-1, traces.shape[1] // 2, traces.shape[2] * 2)
     return positive_synth(traces.reshape(new_shape), interval, best_value, best_op, best_threshold, operators=operators, invariance=invariance)
 
 
@@ -87,7 +93,7 @@ def main():
         if sensor_index != 0:
             continue
         sensor_traces = traces[sensor_index]
-        formula = positive_synth(sensor_traces[:, np.newaxis, :], best=default_best())
+        formula = positive_synth(sensor_traces[:, :, np.newaxis], best=default_best())
         print(f"Sensor {sensor_index+1} formula: {formula}")
         neg_classifications += classify_traces(negatives[sensor_index], formula).tolist()
         pos_classifications += classify_traces(positives[sensor_index], formula).tolist()
@@ -109,8 +115,8 @@ def main():
 
 if __name__ == "__main__":
     traces = np.array([
-        [1,2,1,1],
-        [3,4,2,1],
+        [2,2,2,0.98,2,2,2,1],
+        [3,3,3,1,3,3,3,0.97]
     ])
-    print(positive_synth(traces[:, np.newaxis, :], invariance=True))
+    print(positive_synth(traces[:, :, np.newaxis], invariance=False))
     #main()

@@ -17,6 +17,7 @@
     "WEIGHTS_GRAPH_FILE": "outputs/images/weights.png",
     "WEIGHTS_DIR": "outputs/weights",
     "LOG_FILE": "outputs/log.txt",
+    "GAMMA": 1.0,
     "TREE_CONFIG": {
         "MAX_DEPTH": 5,
         "BETA": 5

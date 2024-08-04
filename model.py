@@ -94,7 +94,7 @@ def update_spec(
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
     use_mean = config["USE_MEAN"]
     if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
-        spec = positive_synth(operators=operators, traces=negative_traces[:, np.newaxis, :], invariance=invariance, use_mean=use_mean)
+        spec = positive_synth(operators=operators, traces=negative_traces[:, :, np.newaxis], invariance=invariance, use_mean=use_mean)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
         bin_classifier = build(negative_traces, positive_values, invariance=invariance, use_mean=use_mean)
