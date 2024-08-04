@@ -30,7 +30,9 @@ from scipy import stats
 from regressor import LargeWeightsRegressor
 from ui import print_anomaly_info
 
+print("Initialising linear regression model...")
 model = LargeWeightsRegressor()
+print("Model initialised!")
 # model = eval(config["MODEL"])
 
 with open('config.json', 'r') as file:
@@ -54,13 +56,15 @@ def apply_anomaly(
 
 
 def get_residuals(
-    new_batch, safe_trace_file=config["SAFE_TRACE_FILE"], sensor_index=0, anomaly_type=None
+    new_batch, safe_trace_file=config["SAFE_TRACE_FILE"], sensor_index=0, anomaly_type=None, pressure=True
 ) -> None:
     def X_Y_split(data: np.ndarray, i: int):
         X = np.delete(data, i, axis=1)
         Y = data[:, i].astype(float)
         return X, Y
-    train = preprocess(safe_trace_file)
+    num_sensor_ids = config["NUM_SENSORS"] // 2
+    indices = np.arange(num_sensor_ids) if pressure else np.arange(num_sensor_ids, 2*num_sensor_ids)
+    train = preprocess(safe_trace_file)[:, indices]
     test = preprocess("".join(new_batch), csv=False)
     if anomaly_type is not None:
         test = apply_anomaly(test, anomaly_type, sensor_index)

@@ -4,4 +4,7 @@ tmp.py
 __pycache__
 inputs/
 tree/__pycache__
-outputs/
+outputs/weights/*.csv
+outputs/residuals/*.csv
+outputs/anomalies/*.csv
+outputs/specs/*.stl
