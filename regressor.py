@@ -3,15 +3,11 @@ from scipy.optimize import minimize
 from sklearn.linear_model import LinearRegression
 
 class LargeWeightsRegressor:
-    def __init__(self, sensor_index=0, threshold=0.1, alpha=0, beta=0, delta=0.0005):
+    def __init__(self, sensor_index=0):
         self.coef_ = None
-        self.threshold = threshold
         self.sensors_used = None
         self.indices_used = None
         self.sensor_index = sensor_index
-        self.alpha = alpha
-        self.beta = beta
-        self.delta = delta
         self.other_model = LinearRegression(positive=True, fit_intercept=False)
 
     def choose_top_weight_indices(self, weights):

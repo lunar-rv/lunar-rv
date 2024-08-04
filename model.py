@@ -24,7 +24,7 @@ from graphs import plot_array
 from tree.tree import TreeNode
 from tree.bin_class import build, update
 import warnings
-from file_io import write_new_batch, write_weights
+from file_io import write_new_batch, write_weights, get_filename
 import json
 from scipy import stats
 from regressor import LargeWeightsRegressor
@@ -73,35 +73,37 @@ def get_residuals(
     abs_residuals = np.abs(predictions - Y_test) * 1000 
     return abs_residuals
 
-def get_safety_prob(mean_rob: float, safe_residuals_file: str = config["RESIDUALS_FILE"]):
+def get_safety_prob(sensor_index, mean_rob: float):
+    safe_residuals_file = get_filename("residuals", sensor_index)
     safe_traces = np.genfromtxt(safe_residuals_file, delimiter=",", dtype=float)
     sigma = np.std(safe_traces)
     mu = np.mean(safe_traces)
     return stats.norm.cdf(mean_rob, mu, sigma)
 
-def new_batch_ok(residuals, formula=None, new_batch: list = None, ) -> bool:
+def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index=None) -> bool:
     if formula:
         classification = formula.evaluate(residuals.reshape(1, -1), labels=False)[0]
-        safety_prob = get_safety_prob(classification)
+        safety_prob = get_safety_prob(sensor_index=sensor_index, mean_rob=classification)
         rounded_rob = np.round(classification, 4)
         print("Robustness: ", rounded_rob)
         print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
-        print(f"Minimum threshold: {np.round(get_safety_prob(0), 4)}")
+        print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0), 4)}")
         if classification < 0:
             print_anomaly_info(model, new_batch)
             return False
     return True
 
 def update_spec(
-    spec_file=config["SPEC_FILE"],
-    residuals_file=config["RESIDUALS_FILE"],
-    anomalies_file=config["ANOMALIES_FILE"],
+    sensor_index,
     operators=config["OPERATORS"],
     invariance=config["INVARIANCE"],
     bin_classifier=None,
     new_trace=None,
     new_label=None,
 ) -> tuple:
+    spec_file = get_filename("specs", sensor_index, suffix=".stl", remove_plural=True)
+    residuals_file = get_filename("residuals", sensor_index)
+    anomalies_file = get_filename("anomalies", sensor_index)
     negative_traces = np.genfromtxt(residuals_file, delimiter=",", dtype=float)
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
     use_mean = config["USE_MEAN"]
@@ -148,12 +150,14 @@ def log_anomaly(
     prompt = "Enter anomaly type:\n - Press Enter if unknown\n - Type 'safe' if this is a false alarm\n>"
     response = input(prompt)
     anomaly_type = response if response else "unknown"
+    anomalies_file = get_filename("anomalies", sensor_index)
+    residuals_file = get_filename("residuals", sensor_index)
     if anomaly_type.lower() == "safe":
-        with open(config["RESIDUALS_FILE"], "a") as r:
+        with open(residuals_file, "a") as r:
             r.write("\n" + trace)
         write_new_batch(batch, config["SAFE_TRACE_FILE"])
         return tree
-    with open(config["ANOMALIES_FILE"], "a") as a:
+    with open(anomalies_file, "a") as a:
         a.write("\n" + trace + "," + anomaly_type)
     if anomaly_type == "unknown":
         return tree

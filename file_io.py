@@ -1,13 +1,30 @@
 import json
 import numpy as np
+import os
 
+def get_filename(output_type: str, sensor_index: int, suffix=".csv", remove_plural=False) -> str:
+    output_dir = config[output_type.upper() + "_DIR"]
+    output_type = output_type[:-1] if remove_plural else output_type
+    return output_dir + f"/sensor_{sensor_index+1}_{output_type}{suffix}"
+    
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
 
-def clear_files(*args) -> None:
-    for filename in args:
-        with open(filename, "w"):
-            pass
+def clear_files() -> None:
+    output_types = ["residuals", "anomalies", "specs"]
+    for ot in output_types:
+        # for filename in os.listdir(output_dir):
+        #     with open(filename, "w"):
+        #         pass
+        if ot == "specs":
+            filenames = [get_filename(ot, i, suffix=".stl", remove_plural=True) for i in range(config["NUM_SENSORS"])]
+        else:
+            filenames = [get_filename(ot, i) for i in range(config["NUM_SENSORS"] // 2)]
+        for filename in filenames:
+            with open(filename, "w"):
+                pass
+    with open(config["LOG_FILE"], "w"):
+        pass
 
 def write_header(source_file, safe_trace_file) -> None:
     with open(source_file, "r") as s:
@@ -17,7 +34,7 @@ def write_header(source_file, safe_trace_file) -> None:
 
 def get_new_batch(
     batch_size=config["BATCH_SIZE"],
-    num_sensors=54,
+    num_sensors=config["NUM_SENSORS"],
     index=0,
     source_file=config["SOURCE_FILE"],
 ) -> list:
@@ -36,9 +53,14 @@ def write_new_batch(new_batch, outfile) -> None:
         i.write("\n")
         i.writelines(new_batch)
 
-def write_weights(model, filename=config["WEIGHTS_FILE"]) -> None:
-    weights = model.coef_[:26]
-    np.savetxt(filename, weights, delimiter=",")
+def write_weights(model) -> None:
+    sensor_index = model.sensor_index
+    weights = model.coef_
+    indices = model.sensors_used
+    filename = get_filename("weights", sensor_index)
+    with open(filename, 'w') as f:
+        f.write(",".join(map(str, indices)) + "\n")#
+        np.savetxt(f, weights[None], delimiter=",", fmt='%.6f')
 
 def end_anomaly(new_batch: list, sensor_index: int):
     first_reading = new_batch[0]

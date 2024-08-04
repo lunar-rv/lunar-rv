@@ -38,7 +38,7 @@ class Formula:
             if use_mean:
                 return [(b, 1, "G") for b in boundaries]
             else:
-                return [(b, 96, "G") for b in boundaries]
+                return [(b, config["BATCH_SIZE"], "G") for b in boundaries]
         all_options = []
         time_period = config["BATCH_SIZE"]
         def add_options(end, op, b=None):
@@ -152,7 +152,7 @@ class Always(BoundedFormula):
     def spec(self):
         if self.end == 1 and config["USE_MEAN"]:
             return f"mean error {self.sign} {self.boundary}"
-        if self.end == 96 and not config["USE_MEAN"]:
+        if self.end == config["BATCH_SIZE"] and not config["USE_MEAN"]:
             return f"always (error {self.sign} {self.boundary})"
         return f"always[0:{self.end} s](error {self.sign} {self.boundary})"
     

@@ -2,7 +2,9 @@ from tree.formula import Always, Formula
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from matplotlib import pyplot as plt
-
+import json
+with open("config.json") as config_file:
+    config = json.load(config_file)
 
 def plot(arr, boundary: float = None, title=""):
     plt.figure(figsize=(10, 6))
@@ -39,7 +41,7 @@ def closeness(arr: np.ndarray) -> float:
 def positive_synth(traces, best=default_best(), operators="FG_", invariance=False, use_mean=True):
     if invariance:
         max_threshold = traces.mean(axis=2).max() if use_mean else traces.max()
-        boundary = 1 if use_mean else 96
+        boundary = 1 if use_mean else config["BATCH_SIZE"]
         return Formula.build_formula(max_threshold, "G", boundary)
     if "F" in operators:
         ev_rob = np.min(traces, axis=1)  # Pick the best value
