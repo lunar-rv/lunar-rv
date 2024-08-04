@@ -32,13 +32,10 @@ def classify_traces(traces, phi, plot_rob=False):
     return classifications
 
 
-def default_best():
-    return {"interval": -1, "value": np.inf, "op": "", "threshold": -1}
-
 def closeness(arr: np.ndarray) -> float:
     return arr.ptp()
 
-def positive_synth(traces, best=default_best(), operators="FG_", invariance=False, use_mean=True):
+def positive_synth(traces, interval=-1, best_value=np.inf, best_op="", best_threshold=-1, operators="FG_", invariance=False, use_mean=True):
     if invariance:
         max_threshold = traces.mean(axis=2).max() if use_mean else traces.max()
         boundary = 1 if use_mean else config["BATCH_SIZE"]
@@ -59,15 +56,15 @@ def positive_synth(traces, best=default_best(), operators="FG_", invariance=Fals
         value, op, threshold = ev_value, "F", ev_mean_rob.max()
     else:
         value, op, threshold = alw_value, "G", alw_mean_rob.max()
-    if value < best["value"]:
-        best["value"] = value
-        best["interval"] = traces.shape[1]
-        best["op"] = op
-        best["threshold"] = threshold
+    if value < best_value:
+        best_value = value
+        interval = traces.shape[1]
+        best_op = op
+        best_threshold = threshold
     if traces.shape[2] % 2 != 0:
-        return Formula.build_formula(best["threshold"], best["op"], best["interval"])
+        return Formula.build_formula(best_threshold, best_op, interval)
     new_shape = (-1, traces.shape[1] * 2, traces.shape[2] // 2)
-    return positive_synth(traces.reshape(new_shape), best, operators=operators, invariance=invariance)
+    return positive_synth(traces.reshape(new_shape), interval, best_value, best_op, best_threshold, operators=operators, invariance=invariance)
 
 
 def main():

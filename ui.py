@@ -83,14 +83,15 @@ def show_weights(sensor_index, weights_dir=config["WEIGHTS_DIR"]) -> None:
 def get_graph(safe_trace_file=config["SAFE_TRACE_FILE"], pressures=True):
     all_weights = []
     all_edges = []
-    num_sensors = config["NUM_SENSORS"] // 2
+    all_data = preprocess(safe_trace_file)
+    num_sensors = all_data.shape[1]
     indices = np.arange(num_sensors) if pressures else np.arange(num_sensors, 2*num_sensors)
-    data = preprocess(safe_trace_file)[:, indices]
+    relevant_data = all_data[:, indices]
     model = LargeWeightsRegressor(sensor_index=0)
     for sensor_index in range(num_sensors):
         model.set_sensor_index(sensor_index)
-        X = np.delete(data, sensor_index, axis=1)
-        y = data[:, sensor_index].astype(float)
+        X = np.delete(relevant_data, sensor_index, axis=1)
+        y = relevant_data[:, sensor_index].astype(float)
         model.fit(X, y)
         weights = model.coef_
         edges = model.sensors_used
@@ -118,7 +119,7 @@ def plot_graph(name="pressures.png"):
     plt.savefig("temperatures.png")
     plt.show()
 
-def print_anomaly_info(model, new_batch):
+def print_anomaly_info(model, new_batch, formula):
     print("\nAnomaly detected!\n")
     data = preprocess("".join(new_batch), csv=False)
     X = np.delete(data, model.sensor_index, axis=1)
@@ -128,6 +129,6 @@ def print_anomaly_info(model, new_batch):
     for i, (weight, index) in enumerate(zip(model.coef_, model.indices_used)):
         start = "\t" if i == 0 else " \t+ "
         print(f"{start}Sensor {index+1} x {weight}")
-    print(f"Predicted average was {predictions.mean()}")
-    print(f"Actual average was {y.mean()}")
-    print("Note that the STL formula is used to determine anomalies - the average is simply an indicator of the error size")
+    print(f"Predicted average was {predictions.mean() * 1000}")
+    print(f"Actual average was {y.mean() * 1000}")
+    print(f"STL formula was: {formula}")

@@ -8,3 +8,5 @@ outputs/weights/*.csv
 outputs/residuals/*.csv
 outputs/anomalies/*.csv
 outputs/specs/*.stl
+outputs/log.txt
+inputs/*.csv

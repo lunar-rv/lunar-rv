@@ -1,11 +1,11 @@
 {
-    "WARMUP_TIME": 2,
+    "WARMUP_TIME": 5,
     "BATCH_SIZE": 96,
     "ANOMALY_SIZE": 0.001,
     "DECISION_BOUNDARY": 0,
     "NUM_SENSORS": 54,
     "OPERATORS": "FG_",
-    "WARMUP_ANOMALIES": 20,
+    "WARMUP_ANOMALIES": 100,
     "PLOT_ANOMALY_GRAPHS": false,
     "INVARIANCE": false,
     "USE_MEAN": false,

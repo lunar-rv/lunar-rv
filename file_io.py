@@ -2,26 +2,21 @@ import json
 import numpy as np
 import os
 
-def get_filename(output_type: str, sensor_index: int, suffix=".csv", remove_plural=False) -> str:
-    output_dir = config[output_type.upper() + "_DIR"]
-    output_type = output_type[:-1] if remove_plural else output_type
-    return output_dir + f"/sensor_{sensor_index+1}_{output_type}{suffix}"
-    
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
 
+def get_filename(output_type: str, sensor_index: int, suffix=".csv", remove_plural=False) -> str:
+    output_dir = config[output_type.upper() + "_DIR"]
+    output_type = output_type[:-1] if remove_plural else output_type
+    return f"{output_dir}/sensor_{sensor_index+1}_{output_type}{suffix}"
+    
+
 def clear_files() -> None:
-    output_types = ["residuals", "anomalies", "specs"]
-    for ot in output_types:
-        # for filename in os.listdir(output_dir):
-        #     with open(filename, "w"):
-        #         pass
-        if ot == "specs":
-            filenames = [get_filename(ot, i, suffix=".stl", remove_plural=True) for i in range(config["NUM_SENSORS"])]
-        else:
-            filenames = [get_filename(ot, i) for i in range(config["NUM_SENSORS"] // 2)]
-        for filename in filenames:
-            with open(filename, "w"):
+    output_directories = [config["WEIGHTS_DIR"], config["RESIDUALS_DIR"], config["ANOMALIES_DIR"]]
+    for dir in output_directories:
+        for filename in os.listdir(dir):
+            file = os.path.join(dir, filename)
+            with open(file, "w"):
                 pass
     with open(config["LOG_FILE"], "w"):
         pass
@@ -32,6 +27,7 @@ def write_header(source_file, safe_trace_file) -> None:
         with open(safe_trace_file, "w") as i:
             i.write(header)
 
+### THIS FUNCTION WOULD NOT BE NEEDED IN PRACTICE
 def get_new_batch(
     batch_size=config["BATCH_SIZE"],
     num_sensors=config["NUM_SENSORS"],
@@ -62,14 +58,13 @@ def write_weights(model) -> None:
         f.write(",".join(map(str, indices)) + "\n")#
         np.savetxt(f, weights[None], delimiter=",", fmt='%.6f')
 
-def end_anomaly(new_batch: list, sensor_index: int):
+def end_anomaly(new_batch: list, sensor_index: int) -> None:
     first_reading = new_batch[0]
     date = first_reading.split(";")[1]
     with open(config["LOG_FILE"], "a") as log:
         log.write(f"Anomaly at sensor {sensor_index} resolved at {date}\n")
-    exit()
 
-def start_anomaly(new_batch: list, sensor_index: int):
+def start_anomaly(new_batch: list, sensor_index: int) -> None:
     first_reading = new_batch[0]
     date = first_reading.split(";")[1]
     with open(config["LOG_FILE"], "a") as log:

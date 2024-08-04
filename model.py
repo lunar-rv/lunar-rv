@@ -1,22 +1,3 @@
-"""
-REQUIREMENTS:
-    1. Linear regression weights and biases are updated with every new reading
-    2. Generate STL spec based on typical behaviour of the system
-    3. Flag anomalous behaviour
-    4. Human engineer classifies anomalous behaviour
-"""
-
-""" 
-
-    BY THURSDAY:
-        - Prepare a presentation
-        - Machine learning model for comparison
-        - Integrate the semi-supervised anomaly detection
-        - Option to only allow invariant operators
-
-"""
-
-##### IMPORTS #####int
 from preproc import preprocess
 import numpy as np
 from synth import positive_synth
@@ -33,7 +14,6 @@ from ui import print_anomaly_info
 print("Initialising linear regression model...")
 model = LargeWeightsRegressor()
 print("Model initialised!")
-# model = eval(config["MODEL"])
 
 with open('config.json', 'r') as file:
     config = json.load(file)
@@ -62,10 +42,11 @@ def get_residuals(
         X = np.delete(data, i, axis=1)
         Y = data[:, i].astype(float)
         return X, Y
-    num_sensor_ids = config["NUM_SENSORS"] // 2
-    indices = np.arange(num_sensor_ids) if pressure else np.arange(num_sensor_ids, 2*num_sensor_ids)
-    train = preprocess(safe_trace_file)[:, indices]
+    train = preprocess(safe_trace_file)
+    num_sensor_ids = train.shape[1] // 2
     test = preprocess("".join(new_batch), csv=False)
+    indices = np.arange(num_sensor_ids) if pressure else np.arange(num_sensor_ids, 2*num_sensor_ids)
+    train = train[:, indices]
     if anomaly_type is not None:
         test = apply_anomaly(test, anomaly_type, sensor_index)
     X_train, Y_train = X_Y_split(train, sensor_index)
@@ -93,7 +74,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index=N
         print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
         print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0), 4)}")
         if classification < 0:
-            print_anomaly_info(model, new_batch)
+            print_anomaly_info(model, new_batch, formula)
             return False
     return True
 
@@ -104,6 +85,7 @@ def update_spec(
     bin_classifier=None,
     new_trace=None,
     new_label=None,
+    formulae=[]
 ) -> tuple:
     spec_file = get_filename("specs", sensor_index, suffix=".stl", remove_plural=True)
     residuals_file = get_filename("residuals", sensor_index)
@@ -120,21 +102,22 @@ def update_spec(
     else:
         bin_classifier = update(bin_classifier, new_trace, new_label, invariance=invariance, use_mean=use_mean)
         spec = bin_classifier.formula
+    formulae[sensor_index] = spec
     with open(spec_file, "r+") as s:
         old_spec = s.read()
         if old_spec == repr(spec):
-            return spec, bin_classifier
+            return formulae, bin_classifier
         s.seek(0)
         s.write(repr(spec))
         s.truncate()
     print("=" * 50)
     print(f"Formula is now: {spec}")
     print("=" * 50)
-    return spec, bin_classifier
+    return formulae, bin_classifier
 
 
 def log_anomaly(
-    batch, trace, sensor_index, tree=None, grow_tree=False, plot=True
+    batch, trace, sensor_index, tree=None, warmup2=False,
 ) -> TreeNode:
     raw_data = preprocess(
         "".join(batch), csv=False, time_features=False, season_features=False
@@ -160,12 +143,12 @@ def log_anomaly(
         with open(residuals_file, "a") as r:
             r.write("\n" + trace)
         write_new_batch(batch, config["SAFE_TRACE_FILE"])
-        return tree
+        return False, tree
     with open(anomalies_file, "a") as a:
         a.write("\n" + trace + "," + anomaly_type)
     if anomaly_type == "unknown":
-        return tree
-    if grow_tree:
+        return True, tree
+    if not warmup2 and not tree:
         print("Building tree...", flush=True)
         tree = TreeNode.build_tree(
             np.append(trace_np, anomaly_type).reshape(1, -1), binary=False, max_depth=5
@@ -176,16 +159,13 @@ def log_anomaly(
         tree.update_tree(np.append(trace_np, anomaly_type), binary=False)
         tree.print_tree()
         print("\nPress Enter to continue (or q to quit) ")
-    return tree
+    return True, tree
 
 def main():
-    # spec, bin_classifier = update_spec(residuals_file="csv/test_predictions.csv")
-    # import random
-    # spec.evaluate(new_trace.reshape(1, -1), labels=False)
-    # print("SPEC:", spec)
-    # print("Classifier:", bin_classifier)
-    from ui import plot_graph
-    plot_graph()
+    residuals_1 = np.genfromtxt("outputs/residuals/sensor_1_residuals.csv", delimiter=",", dtype=float)
+    residuals_2 = np.genfromtxt("outputs/residuals/sensor_2_residuals.csv", delimiter=",", dtype=float)
+    print(np.mean(residuals_1, axis=1).max())
+    print(np.mean(residuals_2, axis=1).max())
 
 
 
