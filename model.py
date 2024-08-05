@@ -20,35 +20,14 @@ with open('config.json', 'r') as file:
 
 warnings.filterwarnings(action="ignore", message="genfromtxt: Empty input file")
 
-def apply_anomaly(
-    dataset: np.ndarray, anomaly_type: str, sensor_index: int
-) -> np.ndarray:
-    if anomaly_type == "1":  # single sensor
-        dataset[:, sensor_index] += config["ANOMALY_SIZE"]
-    elif anomaly_type == "2":
-        dataset[:, sensor_index] += 5 * config["ANOMALY_SIZE"]
-    elif anomaly_type == "3":
-        dataset += config["ANOMALY_SIZE"]
-    else:
-        raise ValueError(f"Unrecognised anomaly type: '{anomaly_type}'")
-    return dataset
-
-
 
 def get_residuals(
-    new_batch, safe_trace_file=config["SAFE_TRACE_FILE"], sensor_index=0, anomaly_type=None, pressure=True
+    new_batch, train, test, sensor_index=0,
 ) -> None:
     def X_Y_split(data: np.ndarray, i: int):
         X = np.delete(data, i, axis=1)
         Y = data[:, i].astype(float)
         return X, Y
-    train = preprocess(safe_trace_file)
-    num_sensor_ids = train.shape[1] // 2
-    test = preprocess("".join(new_batch), csv=False)
-    indices = np.arange(num_sensor_ids) if pressure else np.arange(num_sensor_ids, 2*num_sensor_ids)
-    train = train[:, indices]
-    if anomaly_type is not None:
-        test = apply_anomaly(test, anomaly_type, sensor_index)
     X_train, Y_train = X_Y_split(train, sensor_index)
     X_test, Y_test = X_Y_split(test, sensor_index)
     model.set_sensor_index(sensor_index)

@@ -1,6 +1,8 @@
-from ui import read_user_input, read_anomaly_type, print_trees, progress_bar, show_weights, plot_graph
+from ui import read_user_input, read_anomaly_indices, print_trees, progress_bar, show_weights, plot_graph
 from file_io import clear_files, write_header, get_new_batch, write_new_batch, end_anomaly, start_anomaly, get_filename
 from model import get_residuals, update_spec, log_anomaly, new_batch_ok
+from preproc import preprocess
+import numpy as np
 import json
 with open("config.json", 'r') as config_file:
     config = json.load(config_file)
@@ -32,7 +34,8 @@ def monitor_loop() -> None:
         if response == "g":
             plot_graph()
             continue
-        anomaly_type = read_anomaly_type() if response == "a" else None
+        anomaly_info = read_anomaly_indices() if response == "a" and not (warmup1 or warmup2) else ("normal", np.array([]))
+        anom_type, anomaly_indices = anomaly_info
         new_batch = get_new_batch(
             batch_size=config["BATCH_SIZE"],
             num_sensors=config["NUM_SENSORS"],
@@ -53,18 +56,31 @@ def monitor_loop() -> None:
             if index >= warmup_time * 2:
                 warmup2 = False
                 print("\nWarmup complete.")
+        test = preprocess("".join(new_batch), csv=False)
+        train = preprocess(safe_trace_file)
+        num_sensor_ids = train.shape[1] // 2
+        indices_used = np.arange(num_sensor_ids) if config["PRESSURE"] else np.arange(num_sensor_ids, 2*num_sensor_ids)
+        train = train[:, indices_used]
+        test = test[:, indices_used]
+        if anom_type == "small":
+            test[:, anomaly_indices] += config["SMALL_ANOMALY_SIZE"]
+        elif anom_type == "large":
+            test[:, anomaly_indices] += config["LARGE_ANOMALY_SIZE"]
+        elif anom_type == "all":
+            test += config["LARGE_ANOMALY_SIZE"]
         num_evaluations = 2 # 27
         for sensor_index in range(num_evaluations):
+            anomaly_applied = sensor_index in anomaly_indices
             if not warmup2:
                 print("Evaluating sensor index:", sensor_index + 1)
             elif len(anomaly_statuses) <= sensor_index:
                 anomaly_statuses.append(False)
                 formulae.append(None)
             residuals = get_residuals(
-                safe_trace_file=safe_trace_file,
+                train=train,
+                test=test,
                 new_batch=new_batch,
                 sensor_index=sensor_index,
-                anomaly_type=anomaly_type,
             )
             if not warmup2:
                 print("Mean of residuals:", residuals.mean())

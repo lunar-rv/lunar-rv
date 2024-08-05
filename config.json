@@ -1,7 +1,9 @@
 {
-    "WARMUP_TIME": 5,
+    "PRESSURE": true,
+    "WARMUP_TIME": 20,
     "BATCH_SIZE": 96,
-    "ANOMALY_SIZE": 0.001,
+    "SMALL_ANOMALY_SIZE": 0.001,
+    "LARGE_ANOMALY_SIZE": 0.005,
     "DECISION_BOUNDARY": 0,
     "NUM_SENSORS": 54,
     "OPERATORS": "FG_",

@@ -1,4 +1,4 @@
-import argparse
+import numpy as np
 import sys
 import json
 import numpy as np
@@ -19,16 +19,27 @@ def read_user_input(prompt=">") -> str:
         return response.lower()
     return read_user_input(prompt=prompt)
 
-def read_anomaly_type() -> str:
+def read_anomaly_indices() -> tuple:
     print("Choose anomaly type:")
-    print("Press 1 for a single sensor increase")
+    print("Press 1 for a sensor increase to individual sensors")
     print("Press 2 for a big single sensor increase")
     print("Press 3 for a network-wide increase")
     print("Or press 4 to enter a normal batch:", end=" ")
     response = input()
     while response not in "1234":
         response = input()
-    return response if response != "4" else None
+    if response in "12":
+        print("Choose sensor(s) to increase:")
+        print("\t- Sensor IDs should be separated with spaces, e.g. 1 2 3")
+        print("\t- IDs are expected to start from 1 ")
+        ids_given = input()
+        anom_type = "small" if response == "1" else "large"
+        print("Anomaly type:", anom_type)
+        return anom_type, np.array(ids_given.split(" "), dtype=int) - 1
+    if response == "3":
+        return "all", None
+    if response == "4":
+        return "normal", None
 
 def print_score(tree):
     print("=" * 50)
@@ -84,7 +95,7 @@ def get_graph(safe_trace_file=config["SAFE_TRACE_FILE"], pressures=True):
     all_weights = []
     all_edges = []
     all_data = preprocess(safe_trace_file)
-    num_sensors = all_data.shape[1]
+    num_sensors = all_data.shape[1] // 2
     indices = np.arange(num_sensors) if pressures else np.arange(num_sensors, 2*num_sensors)
     relevant_data = all_data[:, indices]
     model = LargeWeightsRegressor(sensor_index=0)

@@ -39,7 +39,9 @@ def get_new_batch(
     with open(source_file, "r") as s:
         lines = s.readlines()
         if end >= len(lines):
-            return False
+            print("End of file has already been reached!")
+            print("Exiting monitor...")
+            exit()
         values_to_add = lines[start:end]
         return values_to_add
     

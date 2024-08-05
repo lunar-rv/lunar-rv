@@ -1,2 +1,0 @@
-Anomaly at sensor 1 detected at 14/01/2023
-Anomaly at sensor 1 resolved at 15/01/2023
