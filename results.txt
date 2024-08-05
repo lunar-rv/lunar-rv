@@ -1,0 +1,5 @@
+Symmetry scores:
+    - LinearRegression(): -0.01326
+    - LinearRegression(positive=True, fit_intercept=False): 0.01869
+    - Lasso(alpha=1e-8, positive=True): 0.019368
+    - RandomForestRegressor(): 0.013674

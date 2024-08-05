@@ -1,6 +1,5 @@
 import numpy as np
-from scipy.optimize import minimize
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Lasso, LinearRegression
 
 class LargeWeightsRegressor:
     def __init__(self, sensor_index=0):
@@ -8,7 +7,8 @@ class LargeWeightsRegressor:
         self.sensors_used = None
         self.indices_used = None
         self.sensor_index = sensor_index
-        self.other_model = LinearRegression(positive=True, fit_intercept=False)
+        self.filter_model = LinearRegression(positive=True, fit_intercept=False) #Lasso(positive=True, alpha=1e-8)
+        self.fit_model = LinearRegression(positive=True, fit_intercept=False)
 
     def choose_top_weight_indices(self, weights):
         sorted_indices = np.flip(weights.argsort())
@@ -24,16 +24,17 @@ class LargeWeightsRegressor:
         return np.array(indices_used)
 
     def fit(self, X, y):
-        self.other_model.fit(X, y)
-        self.indices_used = self.choose_top_weight_indices(self.other_model.coef_)
+        self.filter_model.fit(X, y)
+        weights = self.filter_model.coef_
+        self.indices_used = self.choose_top_weight_indices(weights)
         self.sensors_used = np.array([i if i < self.sensor_index else i + 1 for i in self.indices_used])
         filtered_X = X[:, self.indices_used]
-        self.other_model.fit(filtered_X, y)
-        self.coef_ = self.other_model.coef_
+        self.fit_model.fit(filtered_X, y)
+        self.coef_ = self.fit_model.coef_
 
     def predict(self, X):
         filtered_X = X[:, self.indices_used]
-        return self.other_model.predict(filtered_X)
+        return self.fit_model.predict(filtered_X)
     
     def set_sensor_index(self, sensor_index: int):
         self.sensor_index = sensor_index

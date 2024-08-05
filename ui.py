@@ -21,7 +21,7 @@ def read_user_input(prompt=">") -> str:
 
 def read_anomaly_indices() -> tuple:
     print("Choose anomaly type:")
-    print("Press 1 for a sensor increase to individual sensors")
+    print("Press 1 for a small increase to individual sensors")
     print("Press 2 for a big increase to individual sensors")
     print("Press 3 for a network-wide increase")
     print("Or press 4 to enter a normal batch:", end=" ")
@@ -143,3 +143,19 @@ def print_anomaly_info(model, new_batch, formula):
     print(f"Predicted average was {predictions.mean() * 1000}")
     print(f"Actual average was {y.mean() * 1000}")
     print(f"STL formula was: {formula}")
+
+def print_intro():
+    print("=" * 65)
+    print("Welcome to the Online Gas Network Monitor".center(65))
+    print("=" * 65)
+    print("Instructions:")
+    print("  - Enter : Read the next batch.")
+    print("  - 'q'   : Quit the application.")
+    print("  - 'a'   : Add a synthetic anomaly.")
+    print("  - 'g'   : Display a graph showing connections between sensors.")
+    print("=" * 65)
+    print("\nNote:")
+    print(f"  - There are two 'warmup' phases of length {config['WARMUP_TIME']} each,")
+    print("    which must be completed before monitoring begins.")
+    print("  - Synthetic anomalies cannot be added during the warmup phases.")
+    print("=" * 65)

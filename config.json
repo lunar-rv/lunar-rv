@@ -1,6 +1,6 @@
 {
     "PRESSURE": true,
-    "WARMUP_TIME": 20,
+    "WARMUP_TIME": 2,
     "BATCH_SIZE": 96,
     "SMALL_ANOMALY_SIZE": 0.001,
     "LARGE_ANOMALY_SIZE": 0.005,

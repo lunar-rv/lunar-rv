@@ -1,0 +1,8 @@
+Anomaly at sensor 2 detected at 06/01/2023
+Anomaly at sensor 2 detected at 07/01/2023
+Anomaly at sensor 1 detected at 08/01/2023
+Anomaly at sensor 2 detected at 08/01/2023
+Anomaly at sensor 1 detected at 09/01/2023
+Anomaly at sensor 2 resolved at 09/01/2023
+Anomaly at sensor 1 resolved at 10/01/2023
+Anomaly at sensor 2 detected at 10/01/2023

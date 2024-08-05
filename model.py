@@ -11,10 +11,7 @@ from scipy import stats
 from regressor import LargeWeightsRegressor
 from ui import print_anomaly_info
 
-print("Initialising linear regression model...")
 model = LargeWeightsRegressor()
-print("Model initialised!")
-
 with open('config.json', 'r') as file:
     config = json.load(file)
 
@@ -22,7 +19,7 @@ warnings.filterwarnings(action="ignore", message="genfromtxt: Empty input file")
 
 
 def get_residuals(
-    new_batch, train, test, sensor_index=0,
+    train, test, sensor_index,
 ) -> None:
     def X_Y_split(data: np.ndarray, i: int):
         X = np.delete(data, i, axis=1)
@@ -134,10 +131,8 @@ def log_anomaly(
         )
         print("Tree built!")
     else:
-        print("Updating tree...", flush=True)
         tree.update_tree(np.append(trace_np, anomaly_type), binary=False)
         tree.print_tree()
-        print("\nPress Enter to continue (or q to quit) ")
     return True, tree
 
 def main():

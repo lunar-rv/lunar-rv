@@ -1,12 +1,16 @@
-from ui import read_user_input, read_anomaly_indices, print_trees, progress_bar, show_weights, plot_graph
+print("Loading resources...")
+
+from ui import read_user_input, read_anomaly_indices, print_trees, progress_bar, show_weights, plot_graph, print_intro
 from file_io import clear_files, write_header, get_new_batch, write_new_batch, end_anomaly, start_anomaly, get_filename
 from model import get_residuals, update_spec, log_anomaly, new_batch_ok
 from preproc import preprocess
 import numpy as np
 import json
+
+
+
 with open("config.json", 'r') as config_file:
     config = json.load(config_file)
-
 
 def monitor_loop() -> None:
     index = 0
@@ -70,7 +74,6 @@ def monitor_loop() -> None:
             test += config["LARGE_ANOMALY_SIZE"]
         num_evaluations = 2 # 27
         for sensor_index in range(num_evaluations):
-            anomaly_applied = sensor_index in anomaly_indices
             if not warmup2:
                 print("Evaluating sensor index:", sensor_index + 1)
             elif len(anomaly_statuses) <= sensor_index:
@@ -79,7 +82,6 @@ def monitor_loop() -> None:
             residuals = get_residuals(
                 train=train,
                 test=test,
-                new_batch=new_batch,
                 sensor_index=sensor_index,
             )
             if not warmup2:
@@ -122,8 +124,7 @@ def monitor_loop() -> None:
 def main() -> None:
     write_header(config["SOURCE_FILE"], config["SAFE_TRACE_FILE"])
     clear_files()
-    print("Welcome to the online sensor monitor using linear regression and STL")
-    print("Press Enter to read next batch, q to quit, a to add an anomaly: ")
+    print_intro()
     monitor_loop()
 
 if __name__ == "__main__":
