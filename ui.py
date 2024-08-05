@@ -22,7 +22,7 @@ def read_user_input(prompt=">") -> str:
 def read_anomaly_indices() -> tuple:
     print("Choose anomaly type:")
     print("Press 1 for a sensor increase to individual sensors")
-    print("Press 2 for a big single sensor increase")
+    print("Press 2 for a big increase to individual sensors")
     print("Press 3 for a network-wide increase")
     print("Or press 4 to enter a normal batch:", end=" ")
     response = input()
