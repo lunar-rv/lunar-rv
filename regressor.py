@@ -48,18 +48,25 @@ def main():
     from file_io import write_weights
     from preproc import preprocess
 
-    # safe_trace_file = "csv/reversed.csv"
-    # data = preprocess(safe_trace_file)[:, :27]
-    data = np.genfromtxt("csv/pressures.csv", delimiter=",", dtype=float)
+    safe_trace_file = "inputs/reversed.csv"
+    # data = preprocess(safe_trace_file)[:, 27:]
+    # np.savetxt("inputs/temperatures.csv", data, delimiter=",")
+    data = np.genfromtxt("inputs/temperatures.csv", delimiter=",", dtype=float)
     np.set_printoptions(suppress=True)
-    for sensor_index in range(2,5):
-        print("Sensor index:", sensor_index+1)
-        X = np.delete(data, sensor_index, axis=1)
-        y = data[:, sensor_index].astype(float)
-        MODEL = LargeWeightsRegressor(sensor_index=sensor_index)
-        MODEL.fit(X, y)
-        print(MODEL.coef_)
-        print(MODEL.sensors_used)
+    from sklearn.model_selection import train_test_split
+    train, test = train_test_split(data, test_size=0.2)
+    def X_Y_split(data: np.ndarray, i: int):
+        X = np.delete(data, i, axis=1)
+        Y = data[:, i].astype(float)
+        return X, Y
+    for sensor_index in range(2):
+        X_train, y_train = X_Y_split(train, sensor_index)
+        X_test, y_test = X_Y_split(test, sensor_index)
+        model = LargeWeightsRegressor(sensor_index=sensor_index)
+        model.fit(X_train, y_train)
+        predictions = model.predict(X_test)
+        residuals = np.abs(predictions - y_test)
+        print(residuals.mean())
         # write_weights(MODEL)
         # show_weights(sensor_index)
 

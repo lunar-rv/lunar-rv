@@ -144,6 +144,7 @@ def monitor_loop() -> None:
                         bin_classifier=bin_classifier,
                         new_trace=residuals,
                         new_label="Safe",
+                        sensor_type=sensor_type,
                     )
 
 

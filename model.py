@@ -33,8 +33,10 @@ def get_residuals(
     write_weights(model, sensor_type=sensor_type)
     predictions = model.predict(X_test)
     abs_residuals = np.abs(predictions - Y_test)
+    print("1", np.mean(abs_residuals))
     if sensor_type == "PRESSURE":
         abs_residuals *= 1000 # mBar
+    print("2", np.mean(abs_residuals))
     return abs_residuals
 
 def get_safety_prob(sensor_index, mean_rob: float, sensor_type=None) -> float:
@@ -53,7 +55,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
         print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
         print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0, sensor_type=sensor_type), 4)}")
         if classification < 0:
-            print_anomaly_info(model, new_batch, formula)
+            print_anomaly_info(model, new_batch, formula, sensor_type)
             return False
     return True
 
@@ -65,7 +67,7 @@ def update_spec(
     new_trace=None,
     new_label=None,
     formulae=[],
-    sensor_type="PRESSURE",
+    sensor_type=None,
 ) -> tuple:
     spec_file = get_filename("specs", sensor_index, suffix=".stl", remove_plural=True, sensor_type=sensor_type)
     residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)

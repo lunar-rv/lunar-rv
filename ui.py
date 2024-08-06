@@ -33,11 +33,18 @@ def read_anomaly_indices() -> tuple:
         print("Choose pressure sensor(s) to increase:")
         print("\t- Sensor IDs should be separated with spaces, e.g. 1 2 3")
         print("\t- IDs are expected to start from 1 ")
-        pressure_ids_given = input()
-        temp_ids_given = input("Choose temperature sensor(s) to increase:\n")
-        ids_given = pressure_ids_given + " " + temp_ids_given
-        anom_type = "small" if response == "1" else "large"
-        return anom_type, np.array(ids_given.split(" "), dtype=int) - 1
+        while True:
+            pressure_ids_given = input()
+            temp_ids_given = input("Choose temperature sensor(s) to increase:\n")
+            try:
+                pressure_ids_list = pressure_ids_given.split(" ") if pressure_ids_given else []
+                temp_ids_list = temp_ids_given.split(" ") if temp_ids_given else []
+                ids_list = np.array(pressure_ids_list + temp_ids_list, dtype=int) - 1
+                anom_type = "small" if response == "1" else "large"
+                return anom_type, ids_list
+            except:
+                print("Invalid input. Please try again.")
+                print("Choose pressure sensor(s) to increase:")
     if response == "3":
         print("Choose anomaly size (small/large):")
         size_response = input()
@@ -137,7 +144,8 @@ def plot_graph(name="pressures.png"):
     plt.savefig("temperatures.png")
     plt.show()
 
-def print_anomaly_info(model, new_batch, formula):
+def print_anomaly_info(model, new_batch, formula, sensor_type):
+    return
     print("\nAnomaly detected!\n")
     data = preprocess("".join(new_batch), csv=False)
     X = np.delete(data, model.sensor_index, axis=1)
@@ -147,8 +155,8 @@ def print_anomaly_info(model, new_batch, formula):
     for i, (weight, index) in enumerate(zip(model.coef_, model.indices_used)):
         start = "\t" if i == 0 else " \t+ "
         print(f"{start}Sensor {index+1} x {weight}")
-    print(f"Predicted average was {predictions.mean() * 1000}")
-    print(f"Actual average was {y.mean() * 1000}")
+    print(f"Predicted average was {predictions.mean() * 1000 if sensor_type == 'PRESSURE' else predictions.mean()}")
+    print(f"Actual average was {y.mean() * 1000 if sensor_type == 'PRESSURE' else y.mean()}")
     print(f"STL formula was: {formula}")
 
 def print_intro():
