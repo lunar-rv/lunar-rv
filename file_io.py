@@ -5,18 +5,24 @@ import os
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
 
-def get_filename(output_type: str, sensor_index: int, suffix=".csv", remove_plural=False) -> str:
+def get_filename(output_type: str, sensor_index: int, sensor_type: str, suffix=".csv", remove_plural=False) -> str:
     output_dir = config[output_type.upper() + "_DIR"]
     output_type = output_type[:-1] if remove_plural else output_type
-    return f"{output_dir}/sensor_{sensor_index+1}_{output_type}{suffix}"
+    return f"{output_dir}/{sensor_type.lower()}/sensor_{sensor_index+1}_{output_type}{suffix}"
     
 
 def clear_files() -> None:
-    output_directories = [config["WEIGHTS_DIR"], config["RESIDUALS_DIR"], config["ANOMALIES_DIR"]]
+    output_directories = [
+        config["WEIGHTS_DIR"], 
+        config["RESIDUALS_DIR"], 
+        config["ANOMALIES_DIR"]
+    ]
     for dir in output_directories:
         for filename in os.listdir(dir):
-            file = os.path.join(dir, filename)
-            with open(file, "w"):
+            full_filename = os.path.join(dir, filename)
+            if os.path.isdir(full_filename):
+                continue
+            with open(full_filename, "w"):
                 pass
     with open(config["LOG_FILE"], "w"):
         pass
@@ -51,11 +57,11 @@ def write_new_batch(new_batch, outfile) -> None:
         i.write("\n")
         i.writelines(new_batch)
 
-def write_weights(model) -> None:
+def write_weights(model, sensor_type="PRESSURE") -> None:
     sensor_index = model.sensor_index
     weights = model.coef_
     indices = model.sensors_used
-    filename = get_filename("weights", sensor_index)
+    filename = get_filename("weights", sensor_index, sensor_type=sensor_type)
     with open(filename, 'w') as f:
         f.write(",".join(map(str, indices)) + "\n")#
         np.savetxt(f, weights[None], delimiter=",", fmt='%.6f')

@@ -19,7 +19,7 @@ warnings.filterwarnings(action="ignore", message="genfromtxt: Empty input file")
 
 
 def get_residuals(
-    train, test, sensor_index,
+    train, test, sensor_index, sensor_type
 ) -> None:
     def X_Y_split(data: np.ndarray, i: int):
         X = np.delete(data, i, axis=1)
@@ -29,22 +29,24 @@ def get_residuals(
     X_test, Y_test = X_Y_split(test, sensor_index)
     model.set_sensor_index(sensor_index)
     model.fit(X_train, Y_train)
-    write_weights(model)
+    write_weights(model, sensor_type=sensor_type)
     predictions = model.predict(X_test)
-    abs_residuals = np.abs(predictions - Y_test) * 1000 
+    abs_residuals = np.abs(predictions - Y_test)
+    if sensor_type == "PRESSURE":
+        abs_residuals *= 1000 # mBar
     return abs_residuals
 
-def get_safety_prob(sensor_index, mean_rob: float):
-    safe_residuals_file = get_filename("residuals", sensor_index)
+def get_safety_prob(sensor_index, mean_rob: float, sensor_type=None) -> float:
+    safe_residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
     safe_traces = np.genfromtxt(safe_residuals_file, delimiter=",", dtype=float)
     sigma = np.std(safe_traces)
     mu = np.mean(safe_traces)
     return stats.norm.cdf(mean_rob, mu, sigma)
 
-def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index=None) -> bool:
+def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None) -> bool:
     if formula:
         classification = formula.evaluate(residuals.reshape(1, -1), labels=False)[0]
-        safety_prob = get_safety_prob(sensor_index=sensor_index, mean_rob=classification)
+        safety_prob = get_safety_prob(sensor_index=sensor_index, mean_rob=classification, sensor_type=sensor_type)
         rounded_rob = np.round(classification, 4)
         print("Robustness: ", rounded_rob)
         print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
@@ -61,11 +63,12 @@ def update_spec(
     bin_classifier=None,
     new_trace=None,
     new_label=None,
-    formulae=[]
+    formulae=[],
+    sensor_type="PRESSURE",
 ) -> tuple:
-    spec_file = get_filename("specs", sensor_index, suffix=".stl", remove_plural=True)
-    residuals_file = get_filename("residuals", sensor_index)
-    anomalies_file = get_filename("anomalies", sensor_index)
+    spec_file = get_filename("specs", sensor_index, suffix=".stl", remove_plural=True, sensor_type=sensor_type)
+    residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
+    anomalies_file = get_filename("anomalies", sensor_index, sensor_type=sensor_type)
     negative_traces = np.genfromtxt(residuals_file, delimiter=",", dtype=float)
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
     use_mean = config["USE_MEAN"]
@@ -93,7 +96,7 @@ def update_spec(
 
 
 def log_anomaly(
-    batch, trace, sensor_index, tree=None, warmup2=False,
+    batch, trace, sensor_index, tree=None, warmup2=False, sensor_type=None
 ) -> TreeNode:
     raw_data = preprocess(
         "".join(batch), csv=False, time_features=False, season_features=False
@@ -113,8 +116,8 @@ def log_anomaly(
     prompt = "Enter anomaly type:\n - Press Enter if unknown\n - Type 'safe' if this is a false alarm\n>"
     response = input(prompt)
     anomaly_type = response if response else "unknown"
-    anomalies_file = get_filename("anomalies", sensor_index)
-    residuals_file = get_filename("residuals", sensor_index)
+    anomalies_file = get_filename("anomalies", sensor_index, sensor_type=sensor_type)
+    residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
     if anomaly_type.lower() == "safe":
         with open(residuals_file, "a") as r:
             r.write("\n" + trace)
@@ -134,6 +137,13 @@ def log_anomaly(
         tree.update_tree(np.append(trace_np, anomaly_type), binary=False)
         tree.print_tree()
     return True, tree
+
+def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str, sensor_type: str) -> np.ndarray:
+    if anom_type in ["small", "large"]:
+        data[:, anomaly_indices] += config[f"{anom_type.upper()}_{sensor_type.upper()}_ANOMALY_SIZE"]
+    elif anom_type == "all":
+        data += config[f"LARGE_{sensor_type.upper()}_ANOMALY_SIZE"]
+    return data
 
 def main():
     residuals_1 = np.genfromtxt("outputs/residuals/sensor_1_residuals.csv", delimiter=",", dtype=float)

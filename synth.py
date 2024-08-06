@@ -93,7 +93,7 @@ def main():
         if sensor_index != 0:
             continue
         sensor_traces = traces[sensor_index]
-        formula = positive_synth(sensor_traces[:, :, np.newaxis], best=default_best())
+        formula = positive_synth(sensor_traces[:, :, np.newaxis])
         print(f"Sensor {sensor_index+1} formula: {formula}")
         neg_classifications += classify_traces(negatives[sensor_index], formula).tolist()
         pos_classifications += classify_traces(positives[sensor_index], formula).tolist()

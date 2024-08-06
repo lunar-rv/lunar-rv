@@ -4,9 +4,13 @@ tmp.py
 __pycache__
 inputs/
 tree/__pycache__
-outputs/weights/*.csv
-outputs/residuals/*.csv
-outputs/anomalies/*.csv
-outputs/specs/*.stl
+outputs/weights/pressure/*.csv
+outputs/weights/temperature/*.csv
+outputs/residuals/pressure/*.csv
+outputs/residuals/temperature/*.csv
+outputs/anomalies/pressure/*.csv
+outputs/anomalies/temperature/*.csv
+outputs/specs/pressure/*.stl
+outputs/specs/temperature/*.stl
 outputs/log.txt
 inputs/*.csv

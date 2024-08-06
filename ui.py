@@ -7,6 +7,7 @@ import networkx as nx
 from regressor import LargeWeightsRegressor
 from preproc import preprocess
 import pandas as pd
+from file_io import get_filename
 
 with open('config.json', 'r') as file:
     config = json.load(file)
@@ -66,8 +67,8 @@ def progress_bar(index, warmup_stage: int, bar_length=40):
     sys.stdout.write(text)
     sys.stdout.flush()
 
-def show_weights(sensor_index, weights_dir=config["WEIGHTS_DIR"]) -> None:
-    filename = weights_dir + f"/sensor_{sensor_index+1}_weights.csv"
+def show_weights(sensor_index, sensor_type) -> None:
+    filename = get_filename("weights", sensor_index, sensor_type=sensor_type)
     df = pd.read_csv(filename)
     indices = df.columns.astype(int).to_numpy()
     weights = df.iloc[0].to_numpy()
