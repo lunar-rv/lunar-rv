@@ -30,15 +30,21 @@ def read_anomaly_indices() -> tuple:
     while response not in "1234":
         response = input()
     if response in "12":
-        print("Choose sensor(s) to increase:")
+        print("Choose pressure sensor(s) to increase:")
         print("\t- Sensor IDs should be separated with spaces, e.g. 1 2 3")
         print("\t- IDs are expected to start from 1 ")
-        ids_given = input()
+        pressure_ids_given = input()
+        temp_ids_given = input("Choose temperature sensor(s) to increase:\n")
+        ids_given = pressure_ids_given + " " + temp_ids_given
         anom_type = "small" if response == "1" else "large"
-        print("Anomaly type:", anom_type)
         return anom_type, np.array(ids_given.split(" "), dtype=int) - 1
     if response == "3":
-        return "all", None
+        print("Choose anomaly size (small/large):")
+        size_response = input()
+        while size_response.lower() not in ["small", "large"]:
+            print(f"Invalid response: '{response.lower()}'")
+            size_response = input()
+        return size_response.lower(), np.arange(54)
     if response == "4":
         return "normal", None
 

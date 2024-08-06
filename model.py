@@ -10,6 +10,7 @@ import json
 from scipy import stats
 from regressor import LargeWeightsRegressor
 from ui import print_anomaly_info
+import os
 
 model = LargeWeightsRegressor()
 with open('config.json', 'r') as file:
@@ -50,7 +51,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
         rounded_rob = np.round(classification, 4)
         print("Robustness: ", rounded_rob)
         print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
-        print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0), 4)}")
+        print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0, sensor_type=sensor_type), 4)}")
         if classification < 0:
             print_anomaly_info(model, new_batch, formula)
             return False
@@ -82,6 +83,9 @@ def update_spec(
         bin_classifier = update(bin_classifier, new_trace, new_label, invariance=invariance, use_mean=use_mean)
         spec = bin_classifier.formula
     formulae[sensor_index] = spec
+    if not os.path.exists(spec_file):
+        with open(spec_file, "w"):
+            pass
     with open(spec_file, "r+") as s:
         old_spec = s.read()
         if old_spec == repr(spec):
@@ -138,11 +142,12 @@ def log_anomaly(
         tree.print_tree()
     return True, tree
 
-def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str, sensor_type: str) -> np.ndarray:
-    if anom_type in ["small", "large"]:
-        data[:, anomaly_indices] += config[f"{anom_type.upper()}_{sensor_type.upper()}_ANOMALY_SIZE"]
-    elif anom_type == "all":
-        data += config[f"LARGE_{sensor_type.upper()}_ANOMALY_SIZE"]
+def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str) -> np.ndarray:
+    if anom_type != "normal":
+        pressure_indices = anomaly_indices[anomaly_indices < 27]
+        temp_indices = anomaly_indices[anomaly_indices >= 27]
+        data[:, pressure_indices] += config[f"{anom_type.upper()}_PRESSURE_ANOMALY_SIZE"]
+        data[:, temp_indices] += config[f"{anom_type.upper()}_TEMPERATURE_ANOMALY_SIZE"]
     return data
 
 def main():

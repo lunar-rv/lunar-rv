@@ -18,15 +18,15 @@ def clear_files() -> None:
         config["ANOMALIES_DIR"]
     ]
     for dir in output_directories:
-        for filename in os.listdir(dir):
-            full_filename = os.path.join(dir, filename)
-            if os.path.isdir(full_filename):
-                continue
-            with open(full_filename, "w"):
-                pass
+        for subdir_name in os.listdir(dir):
+            subdir = os.path.join(dir, subdir_name)
+            for file in os.listdir(subdir):
+                full_filename = os.path.join(subdir, file)
+                with open(full_filename, "w"):
+                    pass
     with open(config["LOG_FILE"], "w"):
         pass
-
+    
 def write_header(source_file, safe_trace_file) -> None:
     with open(source_file, "r") as s:
         header = s.readlines()[0]

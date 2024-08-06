@@ -94,8 +94,8 @@ def monitor_loop() -> None:
             ## Code using anom_classifier and bin_classifier
             indices_used = np.arange(num_sensor_ids) if sensor_type=="PRESSURE" else np.arange(num_sensor_ids, 2*num_sensor_ids)
             train_used = train[:, indices_used]
+            test = apply_anomaly(data=test, anomaly_indices=anomaly_indices, anom_type=anom_type)
             test_used = test[:, indices_used]
-            test_used = apply_anomaly(data=test_used, anomaly_indices=anomaly_indices, anom_type=anom_type, sensor_type=sensor_type)
             num_evaluations = 2 # 27
             for sensor_index in range(num_evaluations):
                 if not warmup2:

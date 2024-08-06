@@ -13,7 +13,7 @@ class LargeWeightsRegressor:
     def choose_top_weight_indices(self, weights):
         sorted_indices = np.flip(weights.argsort())
         total_used = 0
-        threshold = 0.6
+        threshold = 0.8
         num_connections = 10
         indices_used = []
         for index in sorted_indices[:num_connections]:
