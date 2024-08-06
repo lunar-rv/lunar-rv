@@ -95,6 +95,7 @@ def show_weights(sensor_index, sensor_type) -> None:
     max_positive_weight = max(weights.max(), 1e-10)
     max_negative_weight = max(-weights.min(), 1e-10)
     colours = [weight_to_color(w, max_positive_weight, max_negative_weight) for w in weights]
+    save_file = f"{config['GRAPH_DIR']}/{sensor_type.lower()}/sensor_{sensor_index+1}.png"
     plt.figure(figsize=(8, 5))
     plt.bar(indices, weights, color=colours)
     plt.xlabel('Feature Index')
@@ -102,7 +103,7 @@ def show_weights(sensor_index, sensor_type) -> None:
     plt.title('Model Weights')
     plt.grid(True)
     plt.xticks(indices)
-    plt.savefig(config["WEIGHTS_GRAPH_FILE"])
+    plt.savefig(save_file)
     plt.show()
 
 def get_graph(safe_trace_file=config["SAFE_TRACE_FILE"], pressures=True):
@@ -124,28 +125,44 @@ def get_graph(safe_trace_file=config["SAFE_TRACE_FILE"], pressures=True):
         all_edges.append(edges)
     return all_weights, all_edges
 
-def plot_graph(name="pressures.png"):
-    weights, edges = get_graph()
+import networkx as nx
+import numpy as np
+import matplotlib.pyplot as plt
+
+def draw_graph(edges, weights, bidirectional_only, sensor_type):
+    save_file = f"{config['GRAPH_DIR']}/{sensor_type.lower()}/sensor_map.png"
     G = nx.DiGraph()
     for i, edge_array in enumerate(edges):
         for j, edge in enumerate(edge_array):
-            if i in edges[edge]:
-                weight_to_i = weights[edge][np.where(edges[edge] == i)[0][0]]
+            if bidirectional_only:
+                if i in edges[edge]:
+                    weight_to_i = weights[edge][np.where(edges[edge] == i)[0][0]]
+                    weight_to_edge = weights[i][j]
+                    G.add_edge(f"S{edge+1}", f"S{i+1}", weight=np.round(weight_to_i, 3))
+                    G.add_edge(f"S{i+1}", f"S{edge+1}", weight=np.round(weight_to_edge, 3))
+            else:
                 weight_to_edge = weights[i][j]
-                G.add_edge(f"S{edge+1}", f"S{i+1}", weight=np.round(weight_to_i, 3))
                 G.add_edge(f"S{i+1}", f"S{edge+1}", weight=np.round(weight_to_edge, 3))
     for i in range(len(edges)):
         G.add_node(f"S{i+1}")
     pos = nx.spring_layout(G)
-    nx.draw(G, pos, with_labels=True, node_color='red', node_size=500, font_size=10, font_color='white')
+    fig, ax = plt.subplots(figsize=(12, 8))
+    nx.draw(G, pos, with_labels=True, node_color='skyblue', node_size=500, font_size=10, font_color='black', ax=ax)
     labels = nx.get_edge_attributes(G, 'weight')
     nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-    plt.title("Bidirectional Weighted Graph")
-    plt.savefig("temperatures.png")
+    ax.set_title(f"Graph of {sensor_type.capitalize()} Sensor Weights", fontsize=16, pad=20)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.savefig(save_file)
     plt.show()
 
+def plot_graph():
+    bidirectional_only = config["BIDIRECTIONAL_ONLY"]
+    weights, edges = get_graph(pressures=True)
+    draw_graph(edges=edges, weights=weights, bidirectional_only=bidirectional_only, sensor_type="Pressure")
+    weights, edges = get_graph(pressures=False)
+    draw_graph(edges=edges, weights=weights, bidirectional_only=bidirectional_only, sensor_type="Temperature")
+
 def print_anomaly_info(model, new_batch, formula, sensor_type):
-    return
     print("\nAnomaly detected!\n")
     data = preprocess("".join(new_batch), csv=False)
     X = np.delete(data, model.sensor_index, axis=1)

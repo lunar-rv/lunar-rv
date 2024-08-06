@@ -1,5 +1,4 @@
 {
-    "PRESSURE": true,
     "WARMUP_TIME": 5,
     "BATCH_SIZE": 96,
     "SMALL_PRESSURE_ANOMALY_SIZE": 0.001,
@@ -19,8 +18,10 @@
     "SOURCE_FILE": "inputs/reversed.csv",
     "ANOMALIES_DIR": "outputs/anomalies",
     "WEIGHTS_GRAPH_FILE": "outputs/images/weights.png",
+    "BIDIRECTIONAL_ONLY": true,
     "WEIGHTS_DIR": "outputs/weights",
     "LOG_FILE": "outputs/log.txt",
+    "GRAPH_DIR": "outputs/graphs",
     "GAMMA": 1.0,
     "TREE_CONFIG": {
         "MAX_DEPTH": 5,

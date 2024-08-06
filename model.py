@@ -33,10 +33,8 @@ def get_residuals(
     write_weights(model, sensor_type=sensor_type)
     predictions = model.predict(X_test)
     abs_residuals = np.abs(predictions - Y_test)
-    print("1", np.mean(abs_residuals))
     if sensor_type == "PRESSURE":
         abs_residuals *= 1000 # mBar
-    print("2", np.mean(abs_residuals))
     return abs_residuals
 
 def get_safety_prob(sensor_index, mean_rob: float, sensor_type=None) -> float:

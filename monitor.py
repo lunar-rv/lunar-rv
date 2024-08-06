@@ -39,10 +39,33 @@ def monitor_loop() -> None:
             print("Exiting monitor...")
             exit()
         if response == "p":
-            print_trees(bin_classifier=bin_classifier, anom_classifier=anom_classifier)
+            print("=" * 65)
+            print("PRESSURE TREES")
+            print("=" * 65)
+            print_trees(bin_classifier=pressure_bin_classifier, anom_classifier=pressure_anom_classifier)
+            print("=" * 65)
+            print("TEMPERATURE TREES")
+            print("=" * 65)
+            print_trees(bin_classifier=temp_bin_classifier, anom_classifier=temp_anom_classifier)
+            print("=" * 65)
             continue
         if response == "w":
-            show_weights(sensor_index=0)
+            if warmup1:
+                print("Connections not yet learnt.")
+                continue
+            while True:
+                try:
+                    sensor_index = int(input("Enter sensor index: ")) - 1
+                except ValueError:
+                    print(f"Invalid sensor index: '{sensor_index}'")
+                    continue
+                sensor_type = input("Enter sensor type (temperature/pressure): ").upper()
+                while sensor_type not in ["TEMPERATURE", "PRESSURE"]:
+                    sensor_type = input(f"Invalid sensor type: '{sensor_type}'").upper()
+                show_weights(sensor_index=sensor_index, sensor_type=sensor_type)
+                continue_response = input("Show more graphs? (Y/n): ").lower()
+                if continue_response not in ['yes', 'y']:
+                    break
             continue
         if response == "g":
             plot_graph()
