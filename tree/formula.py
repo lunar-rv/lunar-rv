@@ -1,3 +1,5 @@
+print("Loading Formula class and subclasses...")
+
 from abc import ABC, abstractmethod
 import numpy as np
 import json
@@ -118,67 +120,205 @@ class BoundedFormula(Formula, ABC):
             cut_traces = traces[:, i:-j]
             values = np.hstack((values, self.evaluate_interval(cut_traces)))
         return values.mean(axis=1)
-
+    
+    def evaluate2(self, traces, labels=True): # For testing purposes
+        traces = traces[:, :-1].astype(float) if labels else traces
+        end = self.end
+        trace_end = traces.shape[1]
+        for start in range(trace_end - end + 1):
+            cut_traces = traces[:, start:start+end]
+            values = self.boundary - np.min(cut_traces, axis=1).reshape(-1, 1)
+            if start == 0:
+                all_values = values
+            else:
+                all_values = np.hstack((all_values, values))
+        return all_values.mean(axis=1)
+    
 class Eventually(BoundedFormula):
     def __init__(self, boundary, end: int, sign=">="):
         super().__init__(boundary, sign, end)
-
+        self.last = None
     @property
     def spec(self):
-        return f"eventually[0:{self.end}](error {self.sign} {self.boundary})"
+        return f"eventually[0:{self.end})(error {self.sign} {self.boundary})"
     
     def evaluate_interval(self, traces):
         split_traces = traces.reshape(traces.shape[0], -1, self.end)
         values = self.boundary - np.min(split_traces, axis=2)
         return values
+    
+    def evaluate3(self, traces, labels=True): # For testing purposes
+        traces = traces[:, :-1].astype(float) if labels else traces
+        end = self.end
+        trace_end = traces.shape[1]
+        all_values = [None]
+        for start in range(trace_end - end + 1):
+            cut_traces = traces[:, start:start+end]
+            values = self.boundary - np.min(cut_traces, axis=1).reshape(-1, 1)
+            if start == 0:
+                all_values = values
+            else:
+                all_values = np.hstack((all_values, values))
+        return all_values
+    
+    def evaluate_single(self, trace, labels=True):
+        traces_arr = trace.reshape(1, -1)
+        traces_arr = np.hstack((self.last, traces_arr)) if self.last is not None else traces_arr
+        evaluation = self.evaluate3(traces=traces_arr, labels=labels)
+        if self.last is None or self.end <= traces_arr.shape[1]:
+            self.last = traces_arr[:, -self.end + 1:]
+        else:
+            self.last = traces_arr
+        return evaluation[0]
+    
+    def human_readable(self):
+        frequency = 60 // config["TIME_PERIOD"]
+        hours = int(self.end // frequency)
+        mins = config["TIME_PERIOD"] * (self.end % frequency)
+        explanation = f"the value must be below {self.boundary} at some point in each period of {hours} hour(s) and {mins} minutes, or {self.end} consecutive readings"
+        return explanation
 
-class Always(BoundedFormula):
-    def __init__(self, boundary, end: int, sign=">="):
+class Always(Formula):
+    def __init__(self, boundary, end: int = 1, sign=">="):
         super().__init__(boundary, sign=sign, end=end)
 
     @property
     def spec(self):
-        if self.end == 1 and config["USE_MEAN"]:
-            return f"mean error {self.sign} {self.boundary}"
-        if self.end == config["BATCH_SIZE"] and not config["USE_MEAN"]:
-            return f"always (error {self.sign} {self.boundary})"
-        return f"always[0:{self.end} s](error {self.sign} {self.boundary})"
+        return f"always (error {self.sign} {self.boundary})"
     
-    def evaluate_interval(self, traces):
-        split_traces = traces.reshape(traces.shape[0], -1, self.end)
-        values = self.boundary - np.max(split_traces, axis=2)
-        return values
+    def evaluate(self, traces):
+        return self.boundary - traces.max()
+    
+    def human_readable(self):
+        return f"The value must always be below {self.boundary}"
     
 def main():
-    residuals = [0.0036163865133644058, 0.04686857007046852, 0.1652082850037706, 0.027735486037190615, 
-                 0.12886973531023652, 0.05321521805461485, 0.013912560479747288, 0.004184763925652729,
-                 0.05424943527411116, 0.2549802597200182, 0.5577038127065858, 0.23584681074652336, 
-                 0.04774402072724171, 0.08651318639462877, 0.030004879181894095, 0.1247800843416011, 
-                 0.29869655143784435, 0.19481327480304345, 0.3843290294643087, 0.27134670575677117, 
-                 0.17749753198040286, 0.026578510620035162, 0.07932966829624424, 0.04995492033369256, 
-                 0.11335375637889361, 0.5303981340045103, 0.6718895053551381, 0.5877984809249601, 
-                 0.5419727766902485, 0.06203762211260885, 0.20900903823318703, 0.04290417313913483, 
-                 0.04666730660178239, 0.18142692940989122, 0.00362427052912756, 0.12402658248944487, 
-                 0.34734412408765625, 0.5207624405086826, 0.4461320381441737, 0.44422900955495837, 
-                 0.48059123393830866, 0.5026503523616956, 0.38570928600412807, 0.46438381935492296, 
-                 0.58132400495646, 0.1171774580152711, 0.17363025430515086, 0.1171774580152711, 
-                 0.022457758649549464, 0.5080197103476715, 0.36085458034024187, 0.4123528304204489, 
-                 0.5212494796007285, 0.24664924352357787, 0.0763205384082255, 0.208382345576609, 
-                 0.4169771045507767, 0.20812137116076393, 0.1954027664739129, 0.20812137116076393, 
-                 0.1825713492733909, 0.1974867632618081, 0.07662852541491169, 0.21662021223530295, 
-                 0.5290030122015489, 0.013034387193949087, 0.1508795813294668, 0.0060990617795249336, 
-                 0.1386807886589944, 0.4918997824476141, 0.22026851056551958, 0.4727663334741401, 
-                 0.8783292642371259, 0.278149748238362, 0.45818432470042314, 0.2398828502914105, 0.0407157487929688, 
-                 0.013152671225005047, 0.29429063815539225, 0.013152671225005047, 0.33972720289053226, 
-                 0.3357812401771181, 0.3222495401138358, 0.3549146891505921, 0.40671350393453254, 
-                 0.050087557605774796, 0.145045215859535, 0.011820659658798999, 0.08313715189047291, 
-                 0.032597077967620736, 0.0936664584066417, 0.05173052694111557, 0.047607250672342116, 
-                 0.025907592073996094, 0.01895869060497546, 0.0641741250807723
-    ]
-    import numpy as np
-    print(np.mean(residuals))
-    print(np.mean(residuals) - 0.1527388)
+    # from sklearn.linear_model import LinearRegression
+    # from sklearn.model_selection import train_test_split
+    # traces = np.genfromtxt("inputs/preprocessed.csv", delimiter=",", dtype=float)
+    # pressures = traces[:, :27]
+    # def X_Y_split(data: np.ndarray, i: int):
+    #     X = np.delete(data, i, axis=1)
+    #     Y = data[:, i].astype(float)
+    #     return X, Y
+    # def cut(data, dividend):
+    #     end = len(data) % dividend
+    #     return data[:-end]
+        
+    # train, test = train_test_split(pressures, test_size=0.2)
+    # X_train, y_train = X_Y_split(train, 0)
+    # X_test, y_test = X_Y_split(test, 0)
+    # model = LinearRegression()
+    # model.fit(X_train, y_train)
+    # predictions = model.predict(X_test)
+    # residuals = np.abs(predictions - y_test) * 1000
+    # residuals = cut(residuals, 96).reshape(-1, 96)
+    long_formula = Formula.build_formula(0, "F", 4, "<=")
+    import time
+    residuals = np.random.rand(10000, 96)
+    start = time.time()
+    eval1 = long_formula.evaluate(residuals, labels=False)
+    mid1 = time.time()
+    eval2 = long_formula.evaluate2(residuals, labels=False)
+    mid2 = time.time()
+    eval3 = long_formula.evaluate3(residuals, labels=False)
+    end = time.time()
+    print("First:", mid1-start)
+    print("Second:", mid2-mid1)
+    print("Third:", end-mid2)
+    # print(eval1)
+    print("FIRST")
+    print("Score:", eval1.ptp()) # LONG
+    print("Max:", eval1.max())
+    print("Min:", eval1.min())
+    print("==========")
+    # print(eval2)
+    print("SECOND")
+    print("Score:", eval2.ptp()) # SHORT
+    print("Max:", eval2.max())
+    print("Min:", eval2.min())
+    print("==========")
+    print("THIRD")
+    print("Score:", eval3.ptp()) # DEQUE
+    print("Max:", eval3.max())
+    print("Min:", eval3.min())
+    print("==========")
+
+def X_Y_split(data: np.ndarray, i: int):
+    X = np.delete(data, i, axis=1)
+    Y = data[:, i].astype(float)
+    return X, Y
+
+def cut(data, dividend):
+    end = len(data) % dividend
+    return data[:-end]
+
+contraction_fn = lambda r, size: r * (1 + np.exp(10 * (0.5 - size)))
+def get_score(formula, residuals, i=-1):
+    score = formula.evaluate3(residuals, labels=False)
+    proportion = np.log(i) / np.log(96)
+    score = -score.std()
+    # score = contraction_fn(score, proportion)
+    return score
+
+def plot_residuals():
+    pressure_residuals = np.genfromtxt("inputs/pressure_residuals.csv", delimiter=",", dtype=float) * 1000
+    anom_pressure_residuals = np.genfromtxt("inputs/anom_pressure_residuals.csv", delimiter=",", dtype=float) * 1000
+    train = pressure_residuals[:47, :]
+    test = pressure_residuals[47:, :]
+    anom_test = anom_pressure_residuals[47:, :]#test + np.abs(np.random.normal(0, 0.02, test.shape))
+    import matplotlib.pyplot as plt
+    closeness_scores = []
+    neg_scores = []
+    pos_scores = []
+    np.random.seed(0)
+    for i in range(1, 96):
+        formula = Formula.build_formula(0, "F", i, "<=")
+        score = formula.evaluate3(train, labels=False)
+        threshold = score.min()
+        formula = Formula.build_formula(-threshold, "F", i, "<=")
+        closeness_score = get_score(formula, train)
+        neg_test_scores = formula.evaluate3(test, labels=False)
+        pos_test_scores = formula.evaluate3(anom_test, labels=False)
+        closeness_scores.append(closeness_score)
+        # neg_scores.append(neg_test_scores.mean())
+        # pos_scores.append(pos_test_scores.mean())
+        neg_classifications = len(neg_test_scores[neg_test_scores < 0]) # classified as anomalous
+        pos_classifications = len(pos_test_scores[pos_test_scores < 0]) # classified as anomalous
+        neg_scores.append(neg_classifications)
+        pos_scores.append(pos_classifications)
+        print("Interval:", i, "Negative:", neg_classifications, "Positive:", pos_classifications)
+    # plt.xlabel("Trace length")
+    # plt.ylabel("Standard deviation of robustness values")
+    # plt.plot(closeness_scores) 
+    # plt.show()
+    plt.title("Percentage of traces classified as anomalous")
+    plt.xlabel("Interval length")
+    plt.ylabel("Proportion of traces (%)")
+    plt.plot(np.divide(neg_scores, 0.46), label="Safe")
+    plt.plot(np.divide(pos_scores, 0.46), label="Anomalous")
+    plt.legend(["Safe", "Anomalous"])
+    plt.show()
+
+def get_anomaly_bounds(indices) -> list:
+    bounds = []
+    N = len(indices)
+    start_bound = None
+    for i in range(N):
+        this_value = indices[i]
+        if i == 0 or indices[i-1] + 1 != this_value:
+            start_bound = this_value - formula.end + 1
+        if i+1 == N or indices[i+1] - 1 != this_value:
+            bounds.append((start_bound, this_value))
+    return bounds
 
 if __name__ == "__main__":
-
-    main()
+    formula = Formula.build_formula(0.03389871128318955, "F", 22, "<=")
+    trace = np.array([0.0425063702280612, 0.18826705324576434, 0.4012793802426924, 0.524821307393307, 0.4012793802426924, 0.2777362156046216, 0.08972943046809193, 0.2187346138168532, 0.08972943046809193, 0.03927549130232355, 0.07830282062214547, 0.20914935263380632, 0.07830282062214547, 0.05254557409208396, 0.2529852132780244, 0.2985415138590797, 0.2529852132780244, 0.20742634423103617, 0.04664647645037656, 0.18886567125377465, 0.04664647645037656, 0.08322846402686324, 0.026415579590776533, 0.04456207795779099, 0.026415579590776533, 0.097391329790468, 0.14059696562890647, 0.056135059450304614, 0.14059696562890647, 0.22505910966661574, 0.034562718659123665, 0.07952086098149402, 0.034562718659123665, 0.010397645803916084, 0.08506007625892764, 0.19154417566016185, 0.08506007625892764, 0.021425930491116713, 0.05393736400750859, 0.2951377141758929, 0.05393736400750859, 0.1872615554605328, 0.1230854419233332, 0.132138942095468, 0.1230854419233332, 0.11403031783788556, 0.05873009340146701, 0.025932757779956184, 0.05873009340146701, 0.14339103723418067, 0.08308112943081203, 0.07810169207243464, 0.08308112943081203, 0.08806014353105254, 0.07118642531960331, 0.10066471416741996, 0.07118642531960331, 0.04170941405984632, 0.17670088049139693, 0.21716866414733804, 0.17670088049139693, 0.13623405963153132, 0.010912479897609573, 0.12116227758785653, 0.010912479897609573, 0.09933414142337949, 0.07886698900990904, 0.1203811029106272, 0.07886698900990904, 0.0373523756720083, 0.19994758761238476, 0.18341525718406845, 0.19994758761238476, 0.21648105580612462, 0.00836433863940153, 0.07948559696224419, 0.00836433863940153, 0.06275466600965535, 0.047952120222787, 0.03685606157304358, 0.047952120222787, 0.05904706296424797, 0.08613621388102455, 0.13012446222874022, 0.08613621388102455, 0.042148118645540106, 0.2290945076316095, 0.23088366088390086, 0.2290945076316095, 0.2273081929909833, 0.22096992196038445, 0.1937335330804632, 0.22096992196038445, 0.2482059645152017, 0.0425063702280612, 0.1032554733440133, 0.0425063702280612, 0.18826705324576434, 0.4012793802426924, 0.524821307393307, 0.4012793802426924, 0.2777362156046216, 0.08972943046809193, 0.2187346138168532, 0.08972943046809193, 0.03927549130232355, 0.07830282062214547, 0.20914935263380632, 0.07830282062214547, 0.05254557409208396, 0.2529852132780244, 0.2985415138590797, 0.2529852132780244, 0.20742634423103617, 0.04664647645037656, 0.18886567125377465, 0.04664647645037656])
+    evals = formula.evaluate_single(trace)
+    anomaly_start_indices = np.where(evals < 0)[0].tolist()
+    bounds = get_anomaly_bounds(anomaly_start_indices)
+    print(bounds)
+    # for trace in traces:
+    #     score = formula.evaluate_single(np.array(trace), labels=False)
+    #     print(score)

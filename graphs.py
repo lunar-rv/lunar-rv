@@ -20,15 +20,18 @@ def plot_traces(neg_infile, pos_infile, outfile):
     plt.close()
 
 
-def plot_array(trace: np.ndarray, sensor_index: int, keyword: str):
-    plt.plot(trace, label=f"{keyword}")
+def plot_array(trace: np.ndarray, sensor_index: int, keyword: str, boundary=None, bounds: list = []):
+    print(bounds)
+    plt.plot(trace, label=f"{keyword}", color='blue')
+    for start, end in bounds:
+        plt.axvspan(start, end, color='orange', alpha=0.3, label="Anomaly" if start == bounds[0][0] else "")
     plt.xlabel("Time")
-    plt.ylabel(f"Sensor {sensor_index}")
+    plt.ylabel(f"Sensor {sensor_index+1}")
+    if boundary is not None:
+        plt.axhline(y=boundary, color="red", linestyle="--")
     plt.title(f"{keyword} for Sensor {sensor_index}")
     plt.legend()
     plt.show()
-    plt.close()
-
 
 def main():
     parser = argparse.ArgumentParser(description="Plot traces")

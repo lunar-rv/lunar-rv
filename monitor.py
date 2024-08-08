@@ -1,3 +1,10 @@
+"""
+I WANT IT TO SAY IN WHICH TIME PERIOD THE ANOMAL(IES) OCCURRED
+COULD HAVE BATCHES OF SIZE 1, THEN KEEP TRACK OF LIVENESS FOR EACH SENSOR
+    - No batches, time series is just a single line
+    - For interval size I, need to keep track of liveness at I different intervals
+"""
+
 print("Loading resources...")
 
 from ui import read_user_input, read_anomaly_indices, print_trees, progress_bar, show_weights, plot_graph, print_intro
@@ -7,8 +14,6 @@ from preproc import preprocess
 import numpy as np
 import json
 import copy
-
-
 
 with open("config.json", 'r') as config_file:
     config = json.load(config_file)
@@ -122,7 +127,7 @@ def monitor_loop() -> None:
             num_evaluations = 2 # 27
             for sensor_index in range(num_evaluations):
                 if not warmup2:
-                    print(f"{sensor_type}: Evaluating sensor index {sensor_index + 1}")
+                    print(f"{sensor_type} SENSOR {sensor_index + 1}")
                 elif len(anomaly_statuses) <= sensor_index:
                     anomaly_statuses.append(False)
                     formulae.append(None)
@@ -132,8 +137,6 @@ def monitor_loop() -> None:
                     sensor_index=sensor_index,
                     sensor_type=sensor_type,
                 )
-                if not warmup2:
-                    print("Mean of residuals:", residuals.mean())
                 new_trace = ",".join(residuals.astype(str))
                 formula = formulae[sensor_index]
                 if not new_batch_ok(residuals=residuals, formula=formula, new_batch=new_batch, sensor_index=sensor_index, sensor_type=sensor_type):

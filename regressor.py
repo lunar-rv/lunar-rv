@@ -1,5 +1,6 @@
+print("Loading weighted regressor...")
 import numpy as np
-from sklearn.linear_model import Lasso, LinearRegression
+from sklearn.linear_model import LinearRegression
 
 class LargeWeightsRegressor:
     def __init__(self, sensor_index=0):

@@ -12,5 +12,7 @@ outputs/anomalies/pressure/*.csv
 outputs/anomalies/temperature/*.csv
 outputs/specs/pressure/*.stl
 outputs/specs/temperature/*.stl
+outputs/graphs/temperature/*
+outputs/graphs/pressure/*
 outputs/log.txt
 inputs/*.csv

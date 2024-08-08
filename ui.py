@@ -1,3 +1,4 @@
+print("Loading UI features...")
 import numpy as np
 import sys
 import json
@@ -8,6 +9,7 @@ from regressor import LargeWeightsRegressor
 from preproc import preprocess
 import pandas as pd
 from file_io import get_filename
+from datetime import datetime, timedelta
 
 with open('config.json', 'r') as file:
     config = json.load(file)
@@ -176,6 +178,36 @@ def print_anomaly_info(model, new_batch, formula, sensor_type):
     print(f"Actual average was {y.mean() * 1000 if sensor_type == 'PRESSURE' else y.mean()}")
     print(f"STL formula was: {formula}")
 
+def get_and_display_anomaly_times(anomaly_indices: np.ndarray, formula, new_batch: list) -> None:
+    time_period = config["TIME_PERIOD"]
+    def get_anomaly_bounds(indices) -> list:
+        bounds = []
+        N = len(indices)
+        start_bound = None
+        for i in range(N):
+            this_value = indices[i]
+            if i == 0 or indices[i-1] + 1 != this_value:
+                start_bound = this_value - formula.end + 1
+            if i+1 == N or indices[i+1] - 1 != this_value:
+                bounds.append((start_bound, this_value))
+        return bounds
+    print("Formula was:", formula)
+    print(f"This means: {formula.human_readable()}.")
+    print("This was not satisfied between the following times:")
+    first_reading_values = new_batch[0].split(";")
+    date = first_reading_values[1]
+    time = first_reading_values[2]
+    datetime_str = f"{date} {time}"
+    start_time = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
+    bounds = get_anomaly_bounds(anomaly_indices)
+    for interval in bounds:
+        interval_start = (start_time + timedelta(minutes = interval[0] * time_period)).strftime("%d/%m/%Y %H:%M:%S")
+        interval_end = (start_time + timedelta(minutes = interval[1] * time_period)).strftime("%d/%m/%Y %H:%M:%S")
+        print(f"\t{interval_start} to {interval_end}")
+    return bounds
+    # times = [str((start_time + timedelta(minutes=i * frequency)).time()) for i in anomaly_indices]
+    
+
 def print_intro():
     print("=" * 65)
     print("Welcome to the Online Gas Network Monitor".center(65))
@@ -191,3 +223,11 @@ def print_intro():
     print("    which must be completed before monitoring begins.")
     print("  - Synthetic anomalies cannot be added during the warmup phases.")
     print("=" * 65)
+
+if __name__ == "__main__":
+    from tree.formula import Formula
+    anomaly_indices = [1,2,3,5,6]
+    formula = Formula.build_formula(0.1, "F", 6, "<=")
+    new_batch = ['PDM23;03/01/2023;00:00:00;0.0389000015258789;Pressione a valle\n', 
+                 'PDM24;03/01/2023;00:00:00;0.0362999992370605;Pressione a valle\n']
+    print_anomaly_times(anomaly_indices=anomaly_indices, new_batch=new_batch, formula=formula)

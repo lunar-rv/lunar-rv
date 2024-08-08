@@ -1,3 +1,4 @@
+print("Loading file i/o functions...")
 import json
 import numpy as np
 import os

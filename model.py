@@ -9,7 +9,7 @@ from file_io import write_new_batch, write_weights, get_filename
 import json
 from scipy import stats
 from regressor import LargeWeightsRegressor
-from ui import print_anomaly_info
+from ui import print_anomaly_info, get_and_display_anomaly_times
 import os
 
 model = LargeWeightsRegressor()
@@ -17,7 +17,6 @@ with open('config.json', 'r') as file:
     config = json.load(file)
 
 warnings.filterwarnings(action="ignore", message="genfromtxt: Empty input file")
-
 
 def get_residuals(
     train, test, sensor_index, sensor_type
@@ -46,14 +45,40 @@ def get_safety_prob(sensor_index, mean_rob: float, sensor_type=None) -> float:
 
 def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None) -> bool:
     if formula:
-        classification = formula.evaluate(residuals.reshape(1, -1), labels=False)[0]
-        safety_prob = get_safety_prob(sensor_index=sensor_index, mean_rob=classification, sensor_type=sensor_type)
-        rounded_rob = np.round(classification, 4)
-        print("Robustness: ", rounded_rob)
-        print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
-        print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0, sensor_type=sensor_type), 4)}")
-        if classification < 0:
-            print_anomaly_info(model, new_batch, formula, sensor_type)
+        evaluation = formula.evaluate_single(residuals, labels=False)
+        ### NEED TO DEAL WITH PRINTING ANOMALY INFO, BUT DO THIS LATER
+        # safety_prob = get_safety_prob(sensor_index=sensor_index, mean_rob=classification, sensor_type=sensor_type)
+        # rounded_rob = np.round(classification, 4)
+        # print("Robustness: ", rounded_rob)
+        # print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
+        # print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0, sensor_type=sensor_type), 4)}")
+        if evaluation.min() < 0:
+            anomaly_start_indices = np.where(evaluation < 0)[0].tolist()
+            bounds = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch)
+            if formula.last is not None:
+                bounds = np.array(bounds) + 2 * formula.last.size
+                residuals = np.hstack((formula.last.flatten(), residuals))
+            #### ADD formula.last TO START OF RESIDUALS ####
+            ### Problem is that I haven't stored the raw sensor values in 'last' ###
+            ### Could extract these values from a file somewhere ###
+            if config["PLOT_ANOMALY_GRAPHS"]:
+                # print(anomaly_start_indices)
+                # print(residuals.tolist())
+                # exit()
+                raw_data = preprocess("".join(new_batch), csv=False)
+                sensor_values = raw_data[:, sensor_index]
+                plot_array(
+                    trace=sensor_values, sensor_index=sensor_index, keyword="Real Sensor Values"
+                )
+                plot_array(
+                    trace=residuals, 
+                    sensor_index=sensor_index, 
+                    keyword="Magnitude of Residuals", 
+                    boundary=formula.boundary, 
+                    bounds=bounds
+                )
+
+            # print_anomaly_info(model, new_batch, formula, sensor_type)
             return False
     return True
 
@@ -74,7 +99,7 @@ def update_spec(
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
     use_mean = config["USE_MEAN"]
     if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
-        spec = positive_synth(operators=operators, traces=negative_traces[:, :, np.newaxis], invariance=invariance, use_mean=use_mean)
+        spec = positive_synth(operator="F", traces=negative_traces)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
         bin_classifier = build(negative_traces, positive_values, invariance=invariance, use_mean=use_mean)
@@ -105,18 +130,10 @@ def log_anomaly(
     raw_data = preprocess(
         "".join(batch), csv=False, time_features=False, season_features=False
     )
-    sensor_values = raw_data[:, sensor_index]
     trace_np = np.array(trace.split(",")).astype(float)
     if tree:
         prediction = tree.classify(trace_np)
         print("Predicted anomaly type:", prediction)
-    if config["PLOT_ANOMALY_GRAPHS"]:
-        plot_array(
-            trace=sensor_values, sensor_index=sensor_index, keyword="Real Sensor Values"
-        )
-        plot_array(
-            trace=trace_np, sensor_index=sensor_index, keyword="Magnitude of Residuals"
-        )
     prompt = "Enter anomaly type:\n - Press Enter if unknown\n - Type 'safe' if this is a false alarm\n>"
     response = input(prompt)
     anomaly_type = response if response else "unknown"

@@ -1,3 +1,4 @@
+print("Loading formula synthesis functions...")
 from tree.formula import Always, Formula
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -31,46 +32,32 @@ def classify_traces(traces, phi, plot_rob=False):
     classifications = np.where(mean_rob <= phi.boundary, True, False)
     return classifications
 
-
-def weighted_closeness(arr: np.ndarray, interval: int, operator=None, trace_length=-1) -> float:
-    contraction_fn = lambda r, size: r * (1 + config["GAMMA"] * np.exp(0.5 - size))
-    expansion_fn = lambda r, size: r  * (1 + config["GAMMA"] * np.exp(size - 0.5))
+# FIX THE CLOSENESS FUNCTION.
+def weighted_closeness(arr: np.ndarray, interval: int, trace_length=-1) -> float:
+    gamma = config["GAMMA"]
+    contraction_fn = lambda r, size: r * (1 + np.exp((size - 0.5) * gamma))
     score = -arr.ptp() # Aim to maximise score
-    proportion = np.log(interval) / np.log(trace_length)
-    result = contraction_fn(score, proportion) if operator=="F" else expansion_fn(score, proportion)
+    proportion = np.log(interval) / np.log(trace_length) # Log may not be helpful actually
+    result = contraction_fn(score, proportion)
     return result
     
-def positive_synth(traces, interval=1, best_value=-np.inf, best_op="", best_threshold=-1, operators="FG_", invariance=False, use_mean=True):
+def positive_synth(traces, operator="F"):
     trace_length = traces.size // traces.shape[0]
-    if invariance:
-        max_threshold = traces.mean(axis=1).max() if use_mean else traces.max()
-        boundary = 1 if use_mean else config["BATCH_SIZE"]
-        return Formula.build_formula(max_threshold, "G", boundary)
-    if "F" in operators:
-        ev_rob = np.min(traces, axis=2)  # Pick the best value
-        ev_mean_rob = ev_rob.mean(axis=1)
-        ev_value = weighted_closeness(ev_mean_rob, traces.shape[2], operator="F", trace_length=trace_length)
-    else:
-        ev_mean_rob, ev_value = np.inf, np.inf
-    if "G" in operators:
-        alw_rob = np.max(traces, axis=2)  # Pick the worst value
-        alw_mean_rob = alw_rob.mean(axis=1)
-        alw_value = weighted_closeness(alw_mean_rob, traces.shape[2], operator="G", trace_length=trace_length)
-    else:
-        alw_mean_rob, alw_value = np.inf, np.inf
-    if ev_value > alw_value:
-        value, op, threshold = ev_value, "F", ev_mean_rob.max()
-    else:
-        value, op, threshold = alw_value, "G", alw_mean_rob.max()
-    if value > best_value:
-        best_value = value
-        interval = traces.shape[2]
-        best_op = op
-        best_threshold = threshold
-    if traces.shape[1] % 2 != 0:
-        return Formula.build_formula(best_threshold, best_op, interval)
-    new_shape = (-1, traces.shape[1] // 2, traces.shape[2] * 2)
-    return positive_synth(traces.reshape(new_shape), interval, best_value, best_op, best_threshold, operators=operators, invariance=invariance)
+    best_score = -np.inf
+    best_formula = None
+    if operator == "F":
+        for i in range(1, trace_length):
+            formula = Formula.build_formula(0, "F", i, "<=")
+            evaluation = formula.evaluate3(traces, labels=False).min(axis=1)
+            threshold = evaluation.min()
+            score = weighted_closeness(evaluation, interval=i, trace_length=trace_length)
+            if score > best_score:
+                best_score = score
+                best_formula = Formula.build_formula(-threshold, "F", i, "<=")
+    elif operator == "G":
+        best_formula = Formula.build_formula(traces.max(), "G", "<=")
+    return best_formula
+    
 
 
 def main():
@@ -114,9 +101,7 @@ def main():
 
 
 if __name__ == "__main__":
-    traces = np.array([
-        [2,2,2,0.98,2,2,2,1],
-        [3,3,3,1,3,3,3,0.97]
-    ])
-    print(positive_synth(traces[:, :, np.newaxis], invariance=False))
+    traces = np.genfromtxt("outputs/residuals/pressure/sensor_1_residuals.csv", dtype=float, delimiter=",")
+    formula = positive_synth(traces, operator="F")
+    print(formula)
     #main()

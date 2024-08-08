@@ -1,3 +1,4 @@
+print("Loading code for decision tree construction...")
 import numpy as np
 from tree.formula import Formula
 from tree.compare import compare
