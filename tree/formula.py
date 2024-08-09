@@ -137,7 +137,8 @@ class BoundedFormula(Formula, ABC):
 class Eventually(BoundedFormula):
     def __init__(self, boundary, end: int, sign=">="):
         super().__init__(boundary, sign, end)
-        self.last = None
+        self.last_residuals = None
+        self.last_raw_values = None
     @property
     def spec(self):
         return f"eventually[0:{self.end})(error {self.sign} {self.boundary})"
@@ -161,14 +162,21 @@ class Eventually(BoundedFormula):
                 all_values = np.hstack((all_values, values))
         return all_values
     
-    def evaluate_single(self, trace, labels=True):
+    def evaluate_single(self, trace, raw_values: np.ndarray, labels=True):
+        print(raw_values.shape)
+        raw_values = raw_values.reshape(1, -1)
         traces_arr = trace.reshape(1, -1)
-        traces_arr = np.hstack((self.last, traces_arr)) if self.last is not None else traces_arr
+        traces_arr = np.hstack((self.last_residuals, traces_arr)) if self.last_residuals is not None else traces_arr
+        raw_values = np.hstack((self.last_raw_values, raw_values)) if self.last_raw_values is not None else raw_values
         evaluation = self.evaluate3(traces=traces_arr, labels=labels)
-        if self.last is None or self.end <= traces_arr.shape[1]:
-            self.last = traces_arr[:, -self.end + 1:]
+        if self.last_residuals is None or self.end <= traces_arr.shape[1]:
+            if self.last_residuals is not None:
+                print("LRV shape:", self.last_raw_values.shape)
+            self.last_residuals = traces_arr[:, -self.end + 1:]
+            self.last_raw_values = raw_values[:, -self.end + 1:]
         else:
-            self.last = traces_arr
+            self.last_residuals = traces_arr
+            self.last_raw_values = raw_values
         return evaluation[0]
     
     def human_readable(self):

@@ -45,7 +45,9 @@ def get_safety_prob(sensor_index, mean_rob: float, sensor_type=None) -> float:
 
 def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None) -> bool:
     if formula:
-        evaluation = formula.evaluate_single(residuals, labels=False)
+        raw_data = preprocess("".join(new_batch), csv=False)
+        sensor_values = raw_data[:, sensor_index]
+        evaluation = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values)
         ### NEED TO DEAL WITH PRINTING ANOMALY INFO, BUT DO THIS LATER
         # safety_prob = get_safety_prob(sensor_index=sensor_index, mean_rob=classification, sensor_type=sensor_type)
         # rounded_rob = np.round(classification, 4)
@@ -55,25 +57,25 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
         if evaluation.min() < 0:
             anomaly_start_indices = np.where(evaluation < 0)[0].tolist()
             bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch)
-            if formula.last is not None:
-                bounds = np.array(bounds) + 2 * formula.last.size
-                residuals = np.hstack((formula.last.flatten(), residuals))
-            #### ADD formula.last TO START OF RESIDUALS ####
+            if formula.last_residuals is not None:
+                bounds = np.array(bounds) + 2 * formula.last_residuals.size
+                residuals = np.hstack((formula.last_residuals.flatten(), residuals))
+                sensor_values = np.hstack((formula.last_raw_values.flatten(), sensor_values))
+            #### ADD formula.last_residuals TO START OF RESIDUALS ####
             ### Problem is that I haven't stored the raw sensor values in 'last' ###
             ### Could extract these values from a file somewhere ###
             if config["PLOT_ANOMALY_GRAPHS"]:
                 # print(anomaly_start_indices)
                 # print(residuals.tolist())
                 # exit()
-                raw_data = preprocess("".join(new_batch), csv=False)
-                sensor_values = raw_data[:, sensor_index]
                 plot_array(
                     trace=sensor_values,
                     sensor_index=sensor_index,
-                    keyword="Real Sensor Values",
+                    keyword="Actual Sensor Values",
+                    bounds=bounds,
                     sensor_type=sensor_type,
                     batch_start_time=batch_start_time,
-                    backlog_size=0,
+                    backlog_size=formula.last_residuals.size,
                 )
                 plot_array(
                     trace=residuals, 
@@ -82,7 +84,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                     boundary=formula.boundary, 
                     bounds=bounds,
                     batch_start_time=batch_start_time,
-                    backlog_size=formula.last.size,
+                    backlog_size=formula.last_residuals.size,
                     sensor_type=sensor_type,
                 )
 

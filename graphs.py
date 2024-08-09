@@ -36,7 +36,7 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
     plt.xlabel("Time")
     plt.xticks(int_ticks, [dt.strftime("%H:%M") for dt in dt_ticks])
     units = "mBar" if sensor_type == "PRESSURE" else "Kelvin"
-    plt.ylabel(f"Sensor {sensor_index+1} {keyword} {units}")
+    plt.ylabel(f"Sensor {sensor_index+1} {keyword} ({units})")
     if boundary is not None:
         plt.axhline(y=boundary, color="red", linestyle="--")
     if backlog_size == 0:
