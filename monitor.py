@@ -1,10 +1,8 @@
 """
-I WANT IT TO SAY IN WHICH TIME PERIOD THE ANOMAL(IES) OCCURRED
-COULD HAVE BATCHES OF SIZE 1, THEN KEEP TRACK OF LIVENESS FOR EACH SENSOR
-    - No batches, time series is just a single line
-    - For interval size I, need to keep track of liveness at I different intervals
-"""
+May be good to get 'last' info from file where batches are stored? No
+Change axes on graphs so that they show correct time
 
+"""
 print("Loading resources...")
 
 from ui import read_user_input, read_anomaly_indices, print_trees, progress_bar, show_weights, plot_graph, print_intro

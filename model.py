@@ -54,7 +54,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
         # print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0, sensor_type=sensor_type), 4)}")
         if evaluation.min() < 0:
             anomaly_start_indices = np.where(evaluation < 0)[0].tolist()
-            bounds = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch)
+            bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch)
             if formula.last is not None:
                 bounds = np.array(bounds) + 2 * formula.last.size
                 residuals = np.hstack((formula.last.flatten(), residuals))
@@ -68,14 +68,20 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                 raw_data = preprocess("".join(new_batch), csv=False)
                 sensor_values = raw_data[:, sensor_index]
                 plot_array(
-                    trace=sensor_values, sensor_index=sensor_index, keyword="Real Sensor Values"
+                    trace=sensor_values * 1000,
+                    sensor_index=sensor_index,
+                    keyword="Real Sensor Values",
+                    batch_start_time=batch_start_time,
+                    backlog_size=0,
                 )
                 plot_array(
                     trace=residuals, 
                     sensor_index=sensor_index, 
                     keyword="Magnitude of Residuals", 
                     boundary=formula.boundary, 
-                    bounds=bounds
+                    bounds=bounds,
+                    batch_start_time=batch_start_time,
+                    backlog_size=formula.last.size
                 )
 
             # print_anomaly_info(model, new_batch, formula, sensor_type)

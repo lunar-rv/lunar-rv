@@ -204,7 +204,7 @@ def get_and_display_anomaly_times(anomaly_indices: np.ndarray, formula, new_batc
         interval_start = (start_time + timedelta(minutes = interval[0] * time_period)).strftime("%d/%m/%Y %H:%M:%S")
         interval_end = (start_time + timedelta(minutes = interval[1] * time_period)).strftime("%d/%m/%Y %H:%M:%S")
         print(f"\t{interval_start} to {interval_end}")
-    return bounds
+    return bounds, start_time
     # times = [str((start_time + timedelta(minutes=i * frequency)).time()) for i in anomaly_indices]
     
 
