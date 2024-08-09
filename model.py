@@ -68,9 +68,10 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                 raw_data = preprocess("".join(new_batch), csv=False)
                 sensor_values = raw_data[:, sensor_index]
                 plot_array(
-                    trace=sensor_values * 1000,
+                    trace=sensor_values,
                     sensor_index=sensor_index,
                     keyword="Real Sensor Values",
+                    sensor_type=sensor_type,
                     batch_start_time=batch_start_time,
                     backlog_size=0,
                 )
@@ -81,7 +82,8 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                     boundary=formula.boundary, 
                     bounds=bounds,
                     batch_start_time=batch_start_time,
-                    backlog_size=formula.last.size
+                    backlog_size=formula.last.size,
+                    sensor_type=sensor_type,
                 )
 
             # print_anomaly_info(model, new_batch, formula, sensor_type)

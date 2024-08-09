@@ -25,7 +25,7 @@ def plot_traces(neg_infile, pos_infile, outfile):
     plt.close()
 
 
-def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, backlog_size: int = 0, boundary=None, bounds: list = []):
+def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, sensor_type: str, backlog_size: int = 0, boundary=None, bounds: list = []):
     time_period = config["TIME_PERIOD"]
     trace_start_time = batch_start_time - timedelta(minutes=backlog_size * time_period)
     int_ticks = np.linspace(0, len(trace), 9)
@@ -35,14 +35,15 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
         plt.axvspan(start, end, color='orange', alpha=0.3, label="Anomaly" if start == bounds[0][0] else "")
     plt.xlabel("Time")
     plt.xticks(int_ticks, [dt.strftime("%H:%M") for dt in dt_ticks])
-    plt.ylabel(f"Sensor {sensor_index+1} {keyword} (mBar)")
+    units = "mBar" if sensor_type == "PRESSURE" else "Kelvin"
+    plt.ylabel(f"Sensor {sensor_index+1} {keyword} {units}")
     if boundary is not None:
         plt.axhline(y=boundary, color="red", linestyle="--")
     if backlog_size == 0:
         date_str = f"on {batch_start_time.strftime('%Y/%m/%d')}"
     else:
         date_str = f"from {trace_start_time.strftime('%Y/%m/%d')} to {batch_start_time.strftime('%Y/%m/%d')}"
-    plt.title(f"{keyword} for Sensor {sensor_index+1} {date_str}")
+    plt.title(f"{keyword} for {sensor_type.capitalize()} Sensor {sensor_index+1} {date_str}")
     plt.legend()
     plt.show()
 
