@@ -1,6 +1,6 @@
 {
     "WARMUP_TIME": 2,
-    "BATCH_SIZE": 96,
+    "BATCH_SIZE": 48,
     "TIME_PERIOD": 15,
     "SMALL_PRESSURE_ANOMALY_SIZE": 0.001,
     "LARGE_PRESSURE_ANOMALY_SIZE": 0.005,
@@ -9,10 +9,9 @@
     "DECISION_BOUNDARY": 0,
     "NUM_SENSORS": 54,
     "OPERATORS": "FG_",
-    "WARMUP_ANOMALIES": 100,
-    "PLOT_ANOMALY_GRAPHS": true,
-    "INVARIANCE": false,
-    "USE_MEAN": false,
+    "WARMUP_ANOMALIES": 20,
+    "PLOT_ANOMALY_GRAPHS": false,
+    "USE_MIN": true,
     "SPECS_DIR": "outputs/specs",
     "RESIDUALS_DIR": "outputs/residuals",
     "SAFE_TRACE_FILE": "inputs/input.csv",
@@ -23,7 +22,7 @@
     "WEIGHTS_DIR": "outputs/weights",
     "LOG_FILE": "outputs/log.txt",
     "GRAPH_DIR": "outputs/graphs",
-    "GAMMA": 6,
+    "GAMMA": 7,
     "TREE_CONFIG": {
         "MAX_DEPTH": 5,
         "BETA": 5

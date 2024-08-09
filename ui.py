@@ -178,7 +178,7 @@ def print_anomaly_info(model, new_batch, formula, sensor_type):
     print(f"Actual average was {y.mean() * 1000 if sensor_type == 'PRESSURE' else y.mean()}")
     print(f"STL formula was: {formula}")
 
-def get_and_display_anomaly_times(anomaly_indices: np.ndarray, formula, new_batch: list) -> None:
+def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: list, prev_backlog_size: int) -> None:
     time_period = config["TIME_PERIOD"]
     def get_anomaly_bounds(indices) -> list:
         bounds = []
@@ -187,9 +187,9 @@ def get_and_display_anomaly_times(anomaly_indices: np.ndarray, formula, new_batc
         for i in range(N):
             this_value = indices[i]
             if i == 0 or indices[i-1] + 1 != this_value:
-                start_bound = this_value - formula.end + 1
+                start_bound = this_value - prev_backlog_size
             if i+1 == N or indices[i+1] - 1 != this_value:
-                bounds.append((start_bound, this_value))
+                bounds.append((start_bound, this_value + formula.end - prev_backlog_size - 1))
         return bounds
     print("Formula was:", formula)
     print(f"This means: {formula.human_readable()}.")
@@ -201,8 +201,8 @@ def get_and_display_anomaly_times(anomaly_indices: np.ndarray, formula, new_batc
     start_time = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
     bounds = get_anomaly_bounds(anomaly_indices)
     for interval in bounds:
-        interval_start = (start_time + timedelta(minutes = interval[0] * time_period)).strftime("%d/%m/%Y %H:%M:%S")
-        interval_end = (start_time + timedelta(minutes = interval[1] * time_period)).strftime("%d/%m/%Y %H:%M:%S")
+        interval_start = (start_time + timedelta(minutes = (interval[0]) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
+        interval_end = (start_time + timedelta(minutes = (interval[1]) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
         print(f"\t{interval_start} to {interval_end}")
     return bounds, start_time
     # times = [str((start_time + timedelta(minutes=i * frequency)).time()) for i in anomaly_indices]
@@ -230,4 +230,4 @@ if __name__ == "__main__":
     formula = Formula.build_formula(0.1, "F", 6, "<=")
     new_batch = ['PDM23;03/01/2023;00:00:00;0.0389000015258789;Pressione a valle\n', 
                  'PDM24;03/01/2023;00:00:00;0.0362999992370605;Pressione a valle\n']
-    print_anomaly_times(anomaly_indices=anomaly_indices, new_batch=new_batch, formula=formula)
+    get_and_display_anomaly_times(anomaly_indices=anomaly_indices, new_batch=new_batch, formula=formula)

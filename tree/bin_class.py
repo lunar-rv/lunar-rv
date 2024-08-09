@@ -4,7 +4,7 @@ from tree.tree import TreeNode
 from sklearn.model_selection import train_test_split
 
 
-def build(neg_train, pos_train, invariance=False, use_mean=True):
+def build(neg_train, pos_train):
     neg_label_train = np.full((neg_train.shape[0], 1), "Safe")
     pos_label_train = np.full((pos_train.shape[0], 1), "Anomaly")
     train_data = np.vstack(
@@ -13,14 +13,14 @@ def build(neg_train, pos_train, invariance=False, use_mean=True):
             np.hstack((pos_train, pos_label_train)),
         )
     )
-    head = TreeNode.build_tree(train_data, max_depth=1, binary=True, invariance=invariance, use_mean=use_mean)
+    head = TreeNode.build_tree(train_data, max_depth=1, binary=True)
     return head
 
 
-def update(tree, new_values, label, invariance=False, use_mean=True):
+def update(tree, new_values, label):
     label = np.array([label])
     new_trace = np.hstack((new_values, label))
-    tree.update_tree(new_trace, binary=True, invariance=invariance, use_mean=use_mean)
+    tree.update_tree(new_trace, binary=True)
     return tree
 
 
@@ -38,8 +38,8 @@ def main():
     formula = build(neg_train=neg_train, pos_train=pos_train).formula
 
     # Evaluate the model on the test set
-    neg_predictions = formula.evaluate(neg_test)
-    pos_predictions = formula.evaluate(pos_test)
+    neg_predictions = formula.evaluate3(neg_test).min(axis=1)
+    pos_predictions = formula.evaluate3(pos_test).min(axis=1)
     # Combine classifications and ground truths
     print(neg_predictions.shape)
     predictions = np.vstack((neg_predictions, pos_predictions)).flatten()

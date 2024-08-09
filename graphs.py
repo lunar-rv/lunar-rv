@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import argparse
 import logging
 from datetime import datetime, timedelta
 import json
@@ -38,35 +37,15 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
     units = "mBar" if sensor_type == "PRESSURE" else "Kelvin"
     plt.ylabel(f"Sensor {sensor_index+1} {keyword} ({units})")
     if boundary is not None:
-        plt.axhline(y=boundary, color="red", linestyle="--")
-    if backlog_size == 0:
-        date_str = f"on {batch_start_time.strftime('%Y/%m/%d')}"
+        plt.axhline(y=boundary, color="red", linestyle="--", label="Formula boundary")
+    if trace_start_time.day == batch_start_time.day:
+        date_str = f"on {trace_start_time.strftime('%Y/%m/%d')}"
     else:
         date_str = f"from {trace_start_time.strftime('%Y/%m/%d')} to {batch_start_time.strftime('%Y/%m/%d')}"
     plt.title(f"{keyword} for {sensor_type.capitalize()} Sensor {sensor_index+1} {date_str}")
+    if boundary is not None:
+        rob_metric = "min" if config["USE_MIN"] else "mean" 
+        plt.text(0.95, 0.01, f"Robustness metric: {rob_metric}", transform=plt.gca().transAxes,
+         fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     plt.legend()
     plt.show()
-
-def main():
-    parser = argparse.ArgumentParser(description="Plot traces")
-    parser.add_argument(
-        "-p",
-        "--pos_infile",
-        default="csv/positive_test.csv",
-        help="Positives input file",
-    )
-    parser.add_argument(
-        "-n",
-        "--neg_infile",
-        default="csv/negative_test.csv",
-        help="Negatives input file",
-    )
-    parser.add_argument(
-        "-o", "--outfile", default="images/residuals.png", help="Output file for graph"
-    )
-    args = parser.parse_args()
-    plot_traces(args.neg_infile, args.pos_infile, args.outfile)
-
-
-if __name__ == "__main__":
-    main()

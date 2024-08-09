@@ -6,7 +6,8 @@ import random
 from ui import print_score # for testing purposes only
 import json
 with open("config.json") as file:
-    tree_config = json.load(file)["TREE_CONFIG"]
+    config = json.load(file)
+tree_config = config["TREE_CONFIG"]
 
 def entropy(left_lab, right_lab) -> float:
     def calculate_entropy(labels):
@@ -27,26 +28,26 @@ def entropy(left_lab, right_lab) -> float:
     total_entropy = left_weight * left_entropy + right_weight * right_entropy
     return total_entropy
 
-
 def stl_entropy(left_lab, left_rob, right_lab, right_rob) -> float:
+    total_size = len(left_rob) + len(right_rob)
+    l = len(left_rob) / total_size
+    r = len(right_rob) / total_size
+
     def calculate_entropy(lab, rob):
-        size = len(lab)
-        if size == 0:
+        if lab.size == 0:
             return 0
         abs_rob = np.abs(rob)
         classes = np.unique(lab)
         classified_rob_sums = dict.fromkeys(classes, 0)
-        for i in range(size):
+        for i in range(lab.size):
             l = lab[i]
+            if abs_rob[i] == 0:
+                abs_rob[i] = 1e-6 # To avoid division by zero
             classified_rob_sums[l] += abs_rob[i]
         rob_sums = list(classified_rob_sums.values())
         probabilities = rob_sums / np.sum(rob_sums)
         entropy_value = -np.sum(probabilities * np.log(probabilities))
         return entropy_value
-
-    total_size = len(left_rob) + len(right_rob)
-    l = len(left_rob) / total_size
-    r = len(right_rob) / total_size
 
     H_left = calculate_entropy(left_lab, left_rob)
     H_right = calculate_entropy(right_lab, right_rob)
@@ -77,7 +78,7 @@ def find_best_binary_threshold(values, labels, n=20) -> float:
 
 
 def split_with_formula(traces: np.ndarray, formula: Formula, return_traces=False, binary=True) -> tuple:
-    evaluations = formula.evaluate(traces)
+    evaluations = formula.evaluate3(traces).min(axis=1)
     if return_traces:
         left_trace = traces[evaluations > 0]
         right_trace = traces[evaluations <= 0]
@@ -86,7 +87,7 @@ def split_with_formula(traces: np.ndarray, formula: Formula, return_traces=False
     if binary:
         threshold = find_best_binary_threshold(evaluations, labels, n=20)
         formula.boundary = -threshold
-        evaluations = formula.evaluate(traces)
+        evaluations = formula.evaluate3(traces).min(axis=1)
     left_lab = labels[evaluations > 0]
     left_rob = evaluations[evaluations > 0]
     right_lab = labels[evaluations <= 0]
@@ -94,12 +95,12 @@ def split_with_formula(traces: np.ndarray, formula: Formula, return_traces=False
     return left_lab, left_rob, right_lab, right_rob
 
 
-def choose_formula(traces: np.ndarray, binary=False, operators="FG_", invariance=False, use_mean=True) -> Formula:
+def choose_formula(traces: np.ndarray, binary=False) -> Formula:
     best_entropy = np.inf
     best_formula = None
     values = traces[:, :-1].astype(float)
-    boundaries = np.linspace(values.min(), values.max(), num=100)
-    for boundary, end, operator in Formula.list_options(binary=binary, boundaries=boundaries, operators=operators, invariance=invariance, use_mean=use_mean):
+    boundaries = np.linspace(values.min(), values.max(), num=3)
+    for boundary, end, operator in Formula.list_options(binary=binary, boundaries=boundaries):
         formula = Formula.build_formula(boundary=boundary, end=end, operator=operator)
         left_lab, left_rob, right_lab, right_rob = split_with_formula(traces, formula, binary=binary)
         H_1 = stl_entropy(left_lab, left_rob, right_lab, right_rob)
@@ -188,8 +189,9 @@ class TreeNode:
     def classify(self, trace) -> str:
         if self.value:
             return self.value
-        rob = self.formula.evaluate(trace.reshape(1, -1), labels=False)
-        next_node = self.left if rob.mean() > 0 else self.right
+        evaluation = self.formula.evaluate3(trace.reshape(1, -1), labels=False)[0].min()
+        rob = evaluation.min() if config["USE_MIN"] else evaluation.mean()
+        next_node = self.left if rob > 0 else self.right
         return next_node.classify(trace)
 
     def print_tree(self, stem=""):
@@ -204,22 +206,20 @@ class TreeNode:
             self.right.print_tree(stem=r_stem)
 
     @staticmethod
-    def build_tree(traces: np.ndarray, depth=0, max_depth=tree_config["MAX_DEPTH"], binary=False, invariance=False, use_mean=True):
-        if invariance:
-            max_depth = 1
+    def build_tree(traces: np.ndarray, depth=0, max_depth=tree_config["MAX_DEPTH"], binary=False):
         if 0 in traces.shape or traces.ndim == 0:
             return None
         labels = traces[:, -1]
         if len(np.unique(labels)) == 1 or depth == max_depth:
             return TreeNode(None, None, traces, None, value=choose_majority(labels), max_depth=max_depth)
-        formula = choose_formula(traces, binary=binary, invariance=invariance, use_mean=use_mean)
+        formula = choose_formula(traces, binary=binary)
         left_traces, right_traces = split_with_formula(
             traces, formula, return_traces=True, binary=binary
         )
         if len(left_traces) == 0 or len(right_traces) == 0:
             return TreeNode(None, None, traces, None, value=choose_majority(labels), max_depth=max_depth)
-        left_node = TreeNode.build_tree(left_traces, depth=depth+1, max_depth=max_depth, binary=binary, use_mean=use_mean)
-        right_node = TreeNode.build_tree(right_traces, depth=depth+1, max_depth=max_depth, binary=binary, use_mean=use_mean)
+        left_node = TreeNode.build_tree(left_traces, depth=depth+1, max_depth=max_depth, binary=binary)
+        right_node = TreeNode.build_tree(right_traces, depth=depth+1, max_depth=max_depth, binary=binary)
         return TreeNode(left_node, right_node, traces, formula, max_depth=max_depth)
 
     # def update_tree(self, trace: np.ndarray, depth=0, binary=False, invariance=False, use_mean=True) -> None:
@@ -235,10 +235,10 @@ class TreeNode:
     #         next_node = self.left if rob > 0 else self.right
     #         next_node.update_tree(trace, depth=depth+1, binary=binary, invariance=invariance, use_mean=use_mean)
 
-    def update_tree(self, trace: np.ndarray, depth=0, binary=False, invariance=False, use_mean=True) -> None:
+    def update_tree(self, trace: np.ndarray, depth=0, binary=False) -> None:
         def rebuild_tree():
             print("Rebuilding tree...")
-            new_tree = self.build_tree(self.traces, depth=depth, binary=binary, max_depth=self.max_depth, invariance=invariance, use_mean=use_mean)
+            new_tree = self.build_tree(self.traces, depth=depth, binary=binary, max_depth=self.max_depth)
             if new_tree.left or new_tree.right:
                 new_tree.value = None
             self.__dict__.update(new_tree.__dict__)
@@ -253,7 +253,7 @@ class TreeNode:
         if trace[-1] != expected_label:
             rebuild_tree()
         else:
-            next_node.update_tree(trace, depth=depth+1, binary=binary, invariance=invariance, use_mean=use_mean)
+            next_node.update_tree(trace, depth=depth+1, binary=binary)
                  
 
 

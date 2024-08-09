@@ -36,66 +36,68 @@ def get_residuals(
         abs_residuals *= 1000 # mBar
     return abs_residuals
 
-def get_safety_prob(sensor_index, mean_rob: float, sensor_type=None) -> float:
+def get_safety_dist(sensor_index, sensor_type=None) -> float:
     safe_residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
     safe_traces = np.genfromtxt(safe_residuals_file, delimiter=",", dtype=float)
     sigma = np.std(safe_traces)
     mu = np.mean(safe_traces)
-    return stats.norm.cdf(mean_rob, mu, sigma)
+    return mu, sigma
 
 def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None) -> bool:
     if formula:
         raw_data = preprocess("".join(new_batch), csv=False)
         sensor_values = raw_data[:, sensor_index]
+        backlog_size: int = formula.last_residuals.size if formula.last_residuals is not None else 0
+        if backlog_size != 0: # it was None, now it isn't
+            old_residuals = np.hstack((formula.last_residuals.flatten(), residuals))
+            old_sensor_values = np.hstack((formula.last_raw_values.flatten(), sensor_values))
+        else:
+            old_residuals = residuals
+            old_sensor_values = sensor_values
         evaluation = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values)
-        ### NEED TO DEAL WITH PRINTING ANOMALY INFO, BUT DO THIS LATER
-        # safety_prob = get_safety_prob(sensor_index=sensor_index, mean_rob=classification, sensor_type=sensor_type)
-        # rounded_rob = np.round(classification, 4)
-        # print("Robustness: ", rounded_rob)
-        # print(f"Likelihood of robustness {rounded_rob} or lower: {np.round(safety_prob, 4)}")
-        # print(f"Minimum threshold: {np.round(get_safety_prob(sensor_index=sensor_index, mean_rob=0, sensor_type=sensor_type), 4)}")
-        if evaluation.min() < 0:
-            anomaly_start_indices = np.where(evaluation < 0)[0].tolist()
-            bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch)
-            if formula.last_residuals is not None:
-                bounds = np.array(bounds) + 2 * formula.last_residuals.size
-                residuals = np.hstack((formula.last_residuals.flatten(), residuals))
-                sensor_values = np.hstack((formula.last_raw_values.flatten(), sensor_values))
-            #### ADD formula.last_residuals TO START OF RESIDUALS ####
-            ### Problem is that I haven't stored the raw sensor values in 'last' ###
-            ### Could extract these values from a file somewhere ###
+        rob = evaluation.min() if config["USE_MIN"] else evaluation.mean()
+        if rob < 0:
+            mean_rob = np.round(evaluation.mean(), 4)
+            min_rob = np.round(evaluation.min(), 4)
+            mu, sigma = get_safety_dist(sensor_index, sensor_type)
+            mean_safety_prob = np.round(stats.norm.cdf(mean_rob, mu, sigma), 4)
+            min_safety_prob = np.round(stats.norm.cdf(min_rob, mu, sigma), 4)
+            print("Average robustness:", mean_rob)
+            print("Minimum robustness:", min_rob)
+            print(f"Likelihood of robustness {mean_rob} or lower: {mean_safety_prob}")
+            print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
+            if config["USE_MIN"]:
+                anomaly_start_indices = np.where(evaluation < 0)[0].tolist()
+            else:
+                anomaly_start_indices = list(range(len(evaluation)))
+            bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch, prev_backlog_size=backlog_size)
+            bounds = [] if not config["USE_MIN"] else np.array(bounds) + backlog_size
             if config["PLOT_ANOMALY_GRAPHS"]:
-                # print(anomaly_start_indices)
-                # print(residuals.tolist())
-                # exit()
                 plot_array(
-                    trace=sensor_values,
+                    trace=old_sensor_values,
                     sensor_index=sensor_index,
                     keyword="Actual Sensor Values",
                     bounds=bounds,
                     sensor_type=sensor_type,
                     batch_start_time=batch_start_time,
-                    backlog_size=formula.last_residuals.size,
+                    backlog_size=backlog_size,
                 )
                 plot_array(
-                    trace=residuals, 
+                    trace=old_residuals, 
                     sensor_index=sensor_index, 
                     keyword="Magnitude of Residuals", 
                     boundary=formula.boundary, 
                     bounds=bounds,
                     batch_start_time=batch_start_time,
-                    backlog_size=formula.last_residuals.size,
+                    backlog_size=backlog_size,
                     sensor_type=sensor_type,
                 )
-
-            # print_anomaly_info(model, new_batch, formula, sensor_type)
+            print_anomaly_info(model, new_batch, formula, sensor_type)
             return False
     return True
 
 def update_spec(
     sensor_index,
-    operators=config["OPERATORS"],
-    invariance=config["INVARIANCE"],
     bin_classifier=None,
     new_trace=None,
     new_label=None,
@@ -107,15 +109,16 @@ def update_spec(
     anomalies_file = get_filename("anomalies", sensor_index, sensor_type=sensor_type)
     negative_traces = np.genfromtxt(residuals_file, delimiter=",", dtype=float)
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
-    use_mean = config["USE_MEAN"]
+
     if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
-        spec = positive_synth(operator="F", traces=negative_traces)
+        prev_formula = formulae[sensor_index] if len(formulae) > sensor_index else None
+        spec = positive_synth(operator="F", traces=negative_traces, prev_formula=prev_formula)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
-        bin_classifier = build(negative_traces, positive_values, invariance=invariance, use_mean=use_mean)
+        bin_classifier = build(negative_traces, positive_values)
         spec = bin_classifier.formula
     else:
-        bin_classifier = update(bin_classifier, new_trace, new_label, invariance=invariance, use_mean=use_mean)
+        bin_classifier = update(bin_classifier, new_trace, new_label)
         spec = bin_classifier.formula
     formulae[sensor_index] = spec
     if not os.path.exists(spec_file):
@@ -137,9 +140,6 @@ def update_spec(
 def log_anomaly(
     batch, trace, sensor_index, tree=None, warmup2=False, sensor_type=None
 ) -> TreeNode:
-    raw_data = preprocess(
-        "".join(batch), csv=False, time_features=False, season_features=False
-    )
     trace_np = np.array(trace.split(",")).astype(float)
     if tree:
         prediction = tree.classify(trace_np)

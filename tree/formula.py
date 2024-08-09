@@ -24,46 +24,30 @@ class Formula:
         return self.spec
 
     @staticmethod
-    def build_formula(boundary: float, operator="_", end: int = -1, sign="<="):
+    def build_formula(boundary: float, operator="_", end: int = -1, sign="<=", last_residuals=None, last_raw_values=None):
         if operator == "_":
             return Basic(boundary, end=end, sign=sign)
         elif operator == "F":
-            return Eventually(boundary, end=end, sign=sign)
+            return Eventually(boundary, end=end, sign=sign, last_residuals=last_residuals, last_raw_values=last_raw_values)
         elif operator == "G":
             return Always(boundary, end=end, sign=sign)
         else:
             raise ValueError(f"Unknown operator: {operator}")
 
     @staticmethod
-    def list_options(operators="FG_", boundaries=None, binary=True, invariance=False, use_mean=True):
-        if invariance:
-            if use_mean:
-                return [(b, 1, "G") for b in boundaries]
-            else:
-                return [(b, config["BATCH_SIZE"], "G") for b in boundaries]
+    def list_options(boundaries=[], binary=True):
         all_options = []
-        time_period = config["BATCH_SIZE"]
         def add_options(end, op, b=None):
             if binary:
                 all_options.append((0, end, op))
             else:
                 all_options.append((b, end, op))
-        for op in operators:
-            if op in "FG":
-                end = 1
-                while time_period % end == 0 and time_period > end:
-                    if binary:
-                        add_options(end, op)
-                    else:
-                        for b in boundaries:
-                            add_options(end, op, b)
-                    end *= 2
+        for end in range(1, config["BATCH_SIZE"]):
+            if binary:
+                add_options(end, "F")
             else:
-                if binary:
-                    add_options(1, op)
-                else:
-                    for b in boundaries:
-                        add_options(1, op, b)
+                for b in boundaries:
+                    add_options(end, "F", b)
         return all_options
 
     @abstractmethod
@@ -135,10 +119,10 @@ class BoundedFormula(Formula, ABC):
         return all_values.mean(axis=1)
     
 class Eventually(BoundedFormula):
-    def __init__(self, boundary, end: int, sign=">="):
+    def __init__(self, boundary, end: int, sign=">=", last_residuals=None, last_raw_values=None):
         super().__init__(boundary, sign, end)
-        self.last_residuals = None
-        self.last_raw_values = None
+        self.last_residuals = last_residuals
+        self.last_raw_values = last_raw_values
     @property
     def spec(self):
         return f"eventually[0:{self.end})(error {self.sign} {self.boundary})"
@@ -163,21 +147,18 @@ class Eventually(BoundedFormula):
         return all_values
     
     def evaluate_single(self, trace, raw_values: np.ndarray, labels=True):
-        print(raw_values.shape)
         raw_values = raw_values.reshape(1, -1)
         traces_arr = trace.reshape(1, -1)
         traces_arr = np.hstack((self.last_residuals, traces_arr)) if self.last_residuals is not None else traces_arr
         raw_values = np.hstack((self.last_raw_values, raw_values)) if self.last_raw_values is not None else raw_values
-        evaluation = self.evaluate3(traces=traces_arr, labels=labels)
+        evaluation = self.evaluate3(traces=traces_arr, labels=labels)[0]
         if self.last_residuals is None or self.end <= traces_arr.shape[1]:
-            if self.last_residuals is not None:
-                print("LRV shape:", self.last_raw_values.shape)
             self.last_residuals = traces_arr[:, -self.end + 1:]
             self.last_raw_values = raw_values[:, -self.end + 1:]
         else:
             self.last_residuals = traces_arr
             self.last_raw_values = raw_values
-        return evaluation[0]
+        return evaluation
     
     def human_readable(self):
         frequency = 60 // config["TIME_PERIOD"]
@@ -321,10 +302,15 @@ def get_anomaly_bounds(indices) -> list:
     return bounds
 
 if __name__ == "__main__":
-    formula = Formula.build_formula(0.03389871128318955, "F", 22, "<=")
-    trace = np.array([0.0425063702280612, 0.18826705324576434, 0.4012793802426924, 0.524821307393307, 0.4012793802426924, 0.2777362156046216, 0.08972943046809193, 0.2187346138168532, 0.08972943046809193, 0.03927549130232355, 0.07830282062214547, 0.20914935263380632, 0.07830282062214547, 0.05254557409208396, 0.2529852132780244, 0.2985415138590797, 0.2529852132780244, 0.20742634423103617, 0.04664647645037656, 0.18886567125377465, 0.04664647645037656, 0.08322846402686324, 0.026415579590776533, 0.04456207795779099, 0.026415579590776533, 0.097391329790468, 0.14059696562890647, 0.056135059450304614, 0.14059696562890647, 0.22505910966661574, 0.034562718659123665, 0.07952086098149402, 0.034562718659123665, 0.010397645803916084, 0.08506007625892764, 0.19154417566016185, 0.08506007625892764, 0.021425930491116713, 0.05393736400750859, 0.2951377141758929, 0.05393736400750859, 0.1872615554605328, 0.1230854419233332, 0.132138942095468, 0.1230854419233332, 0.11403031783788556, 0.05873009340146701, 0.025932757779956184, 0.05873009340146701, 0.14339103723418067, 0.08308112943081203, 0.07810169207243464, 0.08308112943081203, 0.08806014353105254, 0.07118642531960331, 0.10066471416741996, 0.07118642531960331, 0.04170941405984632, 0.17670088049139693, 0.21716866414733804, 0.17670088049139693, 0.13623405963153132, 0.010912479897609573, 0.12116227758785653, 0.010912479897609573, 0.09933414142337949, 0.07886698900990904, 0.1203811029106272, 0.07886698900990904, 0.0373523756720083, 0.19994758761238476, 0.18341525718406845, 0.19994758761238476, 0.21648105580612462, 0.00836433863940153, 0.07948559696224419, 0.00836433863940153, 0.06275466600965535, 0.047952120222787, 0.03685606157304358, 0.047952120222787, 0.05904706296424797, 0.08613621388102455, 0.13012446222874022, 0.08613621388102455, 0.042148118645540106, 0.2290945076316095, 0.23088366088390086, 0.2290945076316095, 0.2273081929909833, 0.22096992196038445, 0.1937335330804632, 0.22096992196038445, 0.2482059645152017, 0.0425063702280612, 0.1032554733440133, 0.0425063702280612, 0.18826705324576434, 0.4012793802426924, 0.524821307393307, 0.4012793802426924, 0.2777362156046216, 0.08972943046809193, 0.2187346138168532, 0.08972943046809193, 0.03927549130232355, 0.07830282062214547, 0.20914935263380632, 0.07830282062214547, 0.05254557409208396, 0.2529852132780244, 0.2985415138590797, 0.2529852132780244, 0.20742634423103617, 0.04664647645037656, 0.18886567125377465, 0.04664647645037656])
-    evals = formula.evaluate_single(trace)
-    anomaly_start_indices = np.where(evals < 0)[0].tolist()
+    boundary = 0.025018738211056435
+    formula = Formula.build_formula(boundary, "F", 24, "<=")
+    trace = np.array([0.28547559247962817, 0.26462692391961834, 0.28547559247962817, 0.3063249211704179, 0.008126966558354848, 0.052574843004894734, 0.008126966558354848, 0.06882811599092514, 0.0031756988694703336, 0.08547719184467603, 0.0031756988694703336, 0.07912368403458978, 0.20283734279601118, 0.2059510238821248, 0.20283734279601118, 0.19972366170989755, 0.29949484326185705, 0.336089247907366, 0.29949484326185705, 0.2629003874166716, 0.4290392382291681, 0.5070291539974736, 0.4290392382291681, 0.3089858367679409, 0.14197785774081734, 0.09101568911105973, 0.14197785774081734, 0.192942402568147, 0.07308060791669929, 0.19059606368985668, 0.07308060791669929, 0.04443304068794257, 0.14604731202853827, 0.2007189769743338, 0.14604731202853827, 0.09137810532240664, 0.15927335689061572, 0.017395970448575576, 0.15927335689061572, 0.3011521549248844, 0.24963361718947918, 0.13444613551068588, 0.24963361718947918, 0.3648229060367117, 0.6427681625987315, 0.46247514145985813, 0.6427681625987315, 0.8230630910864046, 0.4092410020264184, 0.41902519699403906, 0.4092410020264184, 0.39945748503763046, 0.1133058573260376, 0.14649739708083934, 0.1133058573260376, 0.0801145267012339, 0.156290267218865, 0.013706081577545548, 0.156290267218865, 0.29887254551135695, 0.01189490346697672, 0.13108053474642986, 0.01189490346697672, 0.15486901213030216, 0.020105034374811454, 0.07203256631765562, 0.020105034374811454, 0.11224255302530461, 0.19832857972537643, 0.1232583367795359, 0.19832857972537643])
+    evals = formula.evaluate3(trace.reshape(1, -1))
+    anomaly_start_indices = np.where(evals[0] < 0)[0].tolist()
+    print(anomaly_start_indices)
+    print("Success points:", np.where(trace < boundary)[0].tolist())
+
+    exit()
     bounds = get_anomaly_bounds(anomaly_start_indices)
     print(bounds)
     # for trace in traces:
