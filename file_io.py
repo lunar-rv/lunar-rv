@@ -50,6 +50,9 @@ def get_new_batch(
             print("Exiting monitor...")
             exit()
         values_to_add = lines[start:end]
+        # print([values_to_add[0]])
+        # print(len(values_to_add))
+        # exit()
         return values_to_add
     
 

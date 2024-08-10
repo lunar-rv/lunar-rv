@@ -55,7 +55,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
             old_residuals = residuals
             old_sensor_values = sensor_values
         evaluation = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values)
-        rob = evaluation.min() if config["USE_MIN"] else evaluation.mean()
+        rob = evaluation.mean() if config["USE_MEAN"] else evaluation.min()
         if rob < 0:
             mean_rob = np.round(evaluation.mean(), 4)
             min_rob = np.round(evaluation.min(), 4)
@@ -66,12 +66,12 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
             print("Minimum robustness:", min_rob)
             print(f"Likelihood of robustness {mean_rob} or lower: {mean_safety_prob}")
             print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
-            if config["USE_MIN"]:
-                anomaly_start_indices = np.where(evaluation < 0)[0].tolist()
-            else:
+            if config["USE_MEAN"]:
                 anomaly_start_indices = list(range(len(evaluation)))
+            else:
+                anomaly_start_indices = np.where(evaluation < 0)[0].tolist()
             bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch, prev_backlog_size=backlog_size)
-            bounds = [] if not config["USE_MIN"] else np.array(bounds) + backlog_size
+            bounds = [] if config["USE_MEAN"] else np.array(bounds) + backlog_size
             if config["PLOT_ANOMALY_GRAPHS"]:
                 plot_array(
                     trace=old_sensor_values,

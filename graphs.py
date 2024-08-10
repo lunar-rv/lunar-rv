@@ -27,6 +27,7 @@ def plot_traces(neg_infile, pos_infile, outfile):
 def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, sensor_type: str, backlog_size: int = 0, boundary=None, bounds: list = []):
     time_period = config["TIME_PERIOD"]
     trace_start_time = batch_start_time - timedelta(minutes=backlog_size * time_period)
+    trace_end_time = trace_start_time + timedelta(minutes=(len(trace) - 1) * time_period)
     int_ticks = np.linspace(0, len(trace), 9)
     dt_ticks = [trace_start_time + timedelta(minutes=int(tick) * time_period) for tick in int_ticks]
     plt.plot(trace, label=f"{keyword}", color='blue')
@@ -38,13 +39,13 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
     plt.ylabel(f"Sensor {sensor_index+1} {keyword} ({units})")
     if boundary is not None:
         plt.axhline(y=boundary, color="red", linestyle="--", label="Formula boundary")
-    if trace_start_time.day == batch_start_time.day:
+    if trace_start_time == trace_end_time:
         date_str = f"on {trace_start_time.strftime('%Y/%m/%d')}"
     else:
-        date_str = f"from {trace_start_time.strftime('%Y/%m/%d')} to {batch_start_time.strftime('%Y/%m/%d')}"
+        date_str = f"from {trace_start_time.strftime('%Y/%m/%d')} to {trace_end_time.strftime('%Y/%m/%d')}"
     plt.title(f"{keyword} for {sensor_type.capitalize()} Sensor {sensor_index+1} {date_str}")
     if boundary is not None:
-        rob_metric = "min" if config["USE_MIN"] else "mean" 
+        rob_metric = "mean" if config["USE_MEAN"] else "min"
         plt.text(0.95, 0.01, f"Robustness metric: {rob_metric}", transform=plt.gca().transAxes,
          fontsize=8, verticalalignment='bottom', horizontalalignment='right')
     plt.legend()

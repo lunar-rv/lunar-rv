@@ -189,8 +189,8 @@ class TreeNode:
     def classify(self, trace) -> str:
         if self.value:
             return self.value
-        evaluation = self.formula.evaluate3(trace.reshape(1, -1), labels=False)[0].min()
-        rob = evaluation.min() if config["USE_MIN"] else evaluation.mean()
+        evaluation = self.formula.evaluate3(trace.reshape(1, -1), labels=False)[0]
+        rob = evaluation.mean() if config["USE_MEAN"] else evaluation.min()
         next_node = self.left if rob > 0 else self.right
         return next_node.classify(trace)
 
@@ -222,19 +222,6 @@ class TreeNode:
         right_node = TreeNode.build_tree(right_traces, depth=depth+1, max_depth=max_depth, binary=binary)
         return TreeNode(left_node, right_node, traces, formula, max_depth=max_depth)
 
-    # def update_tree(self, trace: np.ndarray, depth=0, binary=False, invariance=False, use_mean=True) -> None:
-    #     self.traces = np.vstack((self.traces, trace))
-    #     if self.value:
-    #         if self.value != trace[-1]:
-    #             new_tree = self.build_tree(self.traces, depth=depth, binary=binary, max_depth=self.max_depth, invariance=invariance, use_mean=use_mean)
-    #             if new_tree.left or new_tree.right:
-    #                 new_tree.value = None
-    #             self.__dict__.update(new_tree.__dict__)
-    #     else:
-    #         rob = self.formula.evaluate(trace.reshape(1, -1), labels=True)
-    #         next_node = self.left if rob > 0 else self.right
-    #         next_node.update_tree(trace, depth=depth+1, binary=binary, invariance=invariance, use_mean=use_mean)
-
     def update_tree(self, trace: np.ndarray, depth=0, binary=False) -> None:
         def rebuild_tree():
             print("Rebuilding tree...")
@@ -254,8 +241,7 @@ class TreeNode:
             rebuild_tree()
         else:
             next_node.update_tree(trace, depth=depth+1, binary=binary)
-                 
-
+                
 
 def small():
     return random.gauss(2, 1)
@@ -322,12 +308,6 @@ def main():
     print("=" * 50)
     compare(traces)
 
-
-def build_tree_from_file(infile: str, **kwargs):
-    traces = np.genfromtxt(infile, delimiter=",", dtype=str)
-    print(traces.shape)
-
-
 def test_formula_choice():
     traces = np.array(
         [
@@ -389,4 +369,4 @@ def test_entropy():
     print(formula)
 
 if __name__ == "__main__":
-    test_entropy()
+    test_formula_choice()

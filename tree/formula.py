@@ -153,8 +153,12 @@ class Eventually(BoundedFormula):
         raw_values = np.hstack((self.last_raw_values, raw_values)) if self.last_raw_values is not None else raw_values
         evaluation = self.evaluate3(traces=traces_arr, labels=labels)[0]
         if self.last_residuals is None or self.end <= traces_arr.shape[1]:
-            self.last_residuals = traces_arr[:, -self.end + 1:]
-            self.last_raw_values = raw_values[:, -self.end + 1:]
+            if self.end != 1:
+                self.last_residuals = traces_arr[:, -self.end + 1:]
+                self.last_raw_values = raw_values[:, -self.end + 1:]
+            else:
+                self.last_residuals = None
+                self.last_raw_values = None
         else:
             self.last_residuals = traces_arr
             self.last_raw_values = raw_values
