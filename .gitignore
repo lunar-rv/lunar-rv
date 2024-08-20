@@ -14,5 +14,9 @@ outputs/specs/pressure/*.stl
 outputs/specs/temperature/*.stl
 outputs/graphs/temperature/*
 outputs/graphs/pressure/*
+numpy/*
+*.png
+*.npy
+alternative/*
 outputs/log.txt
 inputs/*.csv
