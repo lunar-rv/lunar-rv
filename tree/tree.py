@@ -1,6 +1,6 @@
 print("Loading code for decision tree construction...")
 import numpy as np
-from tree.formula import Formula
+from tree.new_formula import FormulaFactory
 from tree.compare import compare
 import random
 from ui import print_score # for testing purposes only
@@ -77,8 +77,13 @@ def find_best_binary_threshold(values, labels, n=20) -> float:
     return best_threshold
 
 
-def split_with_formula(traces: np.ndarray, formula: Formula, return_traces=False, binary=True) -> tuple:
-    evaluations = formula.evaluate3(traces).min(axis=1)
+def split_with_formula(traces: np.ndarray, formula, return_traces=False, binary=True) -> tuple:
+    try:
+        evaluations = formula.evaluate(traces, labels=True).min(axis=1)
+    except:
+        print("Error evaluating formula", formula)
+        print("Traces:", traces)
+        exit()
     if return_traces:
         left_trace = traces[evaluations > 0]
         right_trace = traces[evaluations <= 0]
@@ -87,7 +92,7 @@ def split_with_formula(traces: np.ndarray, formula: Formula, return_traces=False
     if binary:
         threshold = find_best_binary_threshold(evaluations, labels, n=20)
         formula.boundary = -threshold
-        evaluations = formula.evaluate3(traces).min(axis=1)
+        evaluations = formula.evaluate(traces).min(axis=1)
     left_lab = labels[evaluations > 0]
     left_rob = evaluations[evaluations > 0]
     right_lab = labels[evaluations <= 0]
@@ -95,13 +100,13 @@ def split_with_formula(traces: np.ndarray, formula: Formula, return_traces=False
     return left_lab, left_rob, right_lab, right_rob
 
 
-def choose_formula(traces: np.ndarray, binary=False) -> Formula:
+def choose_formula(traces: np.ndarray, binary=False):
     best_entropy = np.inf
     best_formula = None
     values = traces[:, :-1].astype(float)
-    boundaries = np.linspace(values.min(), values.max(), num=3)
-    for boundary, end, operator in Formula.list_options(binary=binary, boundaries=boundaries):
-        formula = Formula.build_formula(boundary=boundary, end=end, operator=operator)
+    boundaries = np.linspace(values.min(), values.max(), num=5)
+    for boundary, end, operator in FormulaFactory.list_options(binary=binary, boundaries=boundaries):
+        formula = FormulaFactory.build_formula(boundary=boundary, end=end, operator=operator)
         left_lab, left_rob, right_lab, right_rob = split_with_formula(traces, formula, binary=binary)
         H_1 = stl_entropy(left_lab, left_rob, right_lab, right_rob)
         H_2 = entropy(left_lab, right_lab)
@@ -166,9 +171,9 @@ class TreeNode:
         if self.is_leaf():
             return prev_formula + " --> " + self.value + "\n"
         left_spec = prev_formula + (
-            self.formula.spec if verbose else self.formula.stl_spec
+            self.formula.spec
         )
-        right_spec = prev_formula + (self.formula.negate(verbose=verbose))
+        right_spec = prev_formula + (self.formula.negate())
         conj = " and " if verbose else " ∧ "
         if self.left and not self.left.is_leaf():
             left_spec = f"({left_spec}){conj}"
@@ -189,8 +194,8 @@ class TreeNode:
     def classify(self, trace) -> str:
         if self.value:
             return self.value
-        evaluation = self.formula.evaluate3(trace.reshape(1, -1), labels=False)[0]
-        rob = evaluation.mean() if config["USE_MEAN"] else evaluation.min()
+        evaluation = self.formula.evaluate(trace.reshape(1, -1), labels=False)[0]
+        rob = evaluation.min()
         next_node = self.left if rob > 0 else self.right
         return next_node.classify(trace)
 
@@ -234,7 +239,7 @@ class TreeNode:
             if self.value != trace[-1]:
                 rebuild_tree()
             return
-        rob = self.formula.evaluate(trace.reshape(1, -1), labels=True)
+        rob = self.formula.evaluate(trace.reshape(1, -1), labels=True).min()
         next_node = self.left if rob > 0 else self.right
         expected_label = next_node.value if next_node.is_leaf() else choose_majority(next_node.labels)
         if trace[-1] != expected_label:

@@ -57,7 +57,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
         evaluation, separated_evals = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values, return_2d=True)
         rob = evaluation.min()
         if rob < 0:
-            print("Evaluation", evaluation)
+            # print("Evaluation", evaluation)
             print("Failed to satisfy formula: ", formula)
             mean_rob = np.round(evaluation.mean(), 4)
             min_rob = np.round(evaluation.min(), 4)
@@ -72,21 +72,13 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
             if config["PLOT_ANOMALY_GRAPHS"]:
                 for i in range(3):
                     phi = formula[i]
-                    this_evaluation = separated_evals[i][:shortest_length]
+                    this_evaluation = separated_evals[i]#[:shortest_length]
                     if this_evaluation.min() >= 0:
                         continue
-                    print("i", phi.__class__, this_evaluation)
-                    print("phi:", phi)
-                    print("eval", len(evaluation))
-                    print("Length of this evaluation:", len(this_evaluation))
-                    print("Last residuals:", old_residuals)
-                    print("New residuals:", residuals)
                     anomaly_start_indices = np.where(this_evaluation < 0)[0].tolist()
-                    print("Anomaly indices:", anomaly_start_indices)
                     end = phi.end if phi.end is not None else formula.max_length
                     bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch, prev_backlog_size=backlog_size, end=end)
                     bounds = np.array(bounds) + backlog_size
-                    print("Bounds", bounds)
                     plot_array(
                         trace=old_sensor_values,
                         sensor_index=sensor_index,

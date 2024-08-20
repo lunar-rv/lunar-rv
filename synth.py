@@ -1,6 +1,6 @@
 print("Loading formula synthesis functions...")
 from searching import hill_climbing_search
-from tree.new_formula import Formula
+from tree.new_formula import FormulaFactory
 import numpy as np
 import json
 with open("config.json") as config_file:
@@ -10,7 +10,7 @@ with open("config.json") as config_file:
 contraction_fn = lambda r, b, max_size: r * np.exp((0.5 * b / max_size)-0.5)
 
 def evaluate_formula(traces, F_end, G_avg_end):
-    formula = Formula.build_formula(
+    formula = FormulaFactory.build_tightest_formula(
         traces=traces,
         F_end=F_end,
         G_avg_end=G_avg_end,
@@ -26,7 +26,7 @@ def positive_synth(traces, prev_formula=None, reading_type="PRESSURE"):
     best_formula = None
     batch_size = traces.size // traces.shape[0]
     best_x, best_y, _ = hill_climbing_search(traces, batch_size, evaluate_formula)
-    best_formula = Formula.build_formula(
+    best_formula = FormulaFactory.build_tightest_formula(
         traces=traces,
         F_end=best_x,
         G_avg_end=best_y,

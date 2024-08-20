@@ -131,6 +131,7 @@ class Eventually(BoundedFormula):
         split_traces = traces.reshape(traces.shape[0], -1, self.end)
         values = self.boundary - np.min(split_traces, axis=2)
         return values
+
     
     def evaluate3(self, traces, labels=True): # For testing purposes
         traces = traces[:, :-1].astype(float) if labels else traces
@@ -146,6 +147,24 @@ class Eventually(BoundedFormula):
                 all_values = np.hstack((all_values, values))
         return all_values
     
+    def evaluate4(self, traces, labels=True, beta=10000): # Added beta as a parameter
+        def log_min_approx(x, beta=10000):
+            return - (1/beta) * np.log(np.sum(np.exp(-beta * x), axis=1))
+        traces = traces[:, :-1].astype(float) if labels else traces
+        end = self.end
+        trace_end = traces.shape[1]
+        all_values = [None]
+        for start in range(trace_end - end + 1):
+            cut_traces = traces[:, start:start+end]
+            values = self.boundary - log_min_approx(cut_traces, beta).reshape(-1, 1)
+            
+            if start == 0:
+                all_values = values
+            else:
+                all_values = np.hstack((all_values, values))
+        
+        return all_values
+
     def evaluate_single(self, trace, raw_values: np.ndarray, labels=True):
         raw_values = raw_values.reshape(1, -1)
         traces_arr = trace.reshape(1, -1)
@@ -251,7 +270,7 @@ def get_score(formula, residuals, i=-1):
     score = formula.evaluate3(residuals, labels=False)
     proportion = np.log(i) / np.log(96)
     score = -score.std()
-    # score = contraction_fn(score, proportion)
+    score = contraction_fn(score, proportion)
     return score
 
 def plot_residuals():
