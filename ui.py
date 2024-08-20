@@ -178,7 +178,7 @@ def print_anomaly_info(model, new_batch, formula, sensor_type):
     print(f"Actual average was {y.mean() * 1000 if sensor_type == 'PRESSURE' else y.mean()}")
     print(f"STL formula was: {formula}")
 
-def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: list, prev_backlog_size: int) -> None:
+def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: list, prev_backlog_size: int, end: int) -> None:
     time_period = config["TIME_PERIOD"]
     def get_anomaly_bounds(indices) -> list:
         bounds = []
@@ -189,7 +189,7 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
             if i == 0 or indices[i-1] + 1 != this_value:
                 start_bound = this_value - prev_backlog_size
             if i+1 == N or indices[i+1] - 1 != this_value:
-                bounds.append((start_bound, this_value + formula.end - prev_backlog_size - 1))
+                bounds.append((start_bound, this_value + end - prev_backlog_size - 1))
         return bounds
     print("Formula was:", formula)
     print(f"This means: {formula.human_readable()}.")

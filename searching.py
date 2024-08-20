@@ -15,6 +15,7 @@ def grid_search(traces, batch_size, evaluation_fn):
     return best_x, best_y, best_score
 
 def hill_climbing_search(traces, batch_size, evaluation_fn, max_iters=50):
+    np.random.seed(42)
     # Random starting point
     current_x = np.random.randint(1, batch_size)
     current_y = np.random.randint(1, batch_size)
