@@ -126,7 +126,7 @@ def update_spec(
 
     if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
         prev_formula = formulae[sensor_index] if len(formulae) > sensor_index else None
-        spec = positive_synth(traces=negative_traces, prev_formula=prev_formula)
+        spec = positive_synth(traces=negative_traces, prev_formula=prev_formula, reading_type=sensor_type)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
         bin_classifier = build(negative_traces, positive_values)

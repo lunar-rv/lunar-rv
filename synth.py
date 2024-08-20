@@ -22,7 +22,7 @@ def evaluate_formula(traces, F_end, G_avg_end):
     score = contraction_fn(r, b, max_size)
     return score
 
-def positive_synth(traces, prev_formula=None):
+def positive_synth(traces, prev_formula=None, reading_type="PRESSURE"):
     best_formula = None
     batch_size = traces.size // traces.shape[0]
     best_x, best_y, _ = hill_climbing_search(traces, batch_size, evaluate_formula)
@@ -30,6 +30,7 @@ def positive_synth(traces, prev_formula=None):
         traces=traces,
         F_end=best_x,
         G_avg_end=best_y,
+        reading_type=reading_type
     )
     if prev_formula:
         lrv = prev_formula.last_raw_values
