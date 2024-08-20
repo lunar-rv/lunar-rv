@@ -26,6 +26,7 @@ def positive_synth(traces, operator="F", prev_formula=None):
             score = weighted_closeness(evaluation, interval=i, trace_length=trace_length)
             if score > best_score:
                 best_score = score
+                threshold -= config["DECISION_BOUNDARY"]
                 best_formula = Formula.build_formula(-threshold, "F", i, "<=")
         if prev_formula:
             lrv = prev_formula.last_raw_values
@@ -42,3 +43,28 @@ def positive_synth(traces, operator="F", prev_formula=None):
     elif operator == "G":
         best_formula = Formula.build_formula(traces.max(), "G", "<=")
     return best_formula
+
+def main():
+    import telex.synth as tx
+    import time
+    from formula import Formula
+    import matplotlib.pyplot as plt
+    traces = np.genfromtxt("inputs/pressure_residuals.csv", delimiter=",", dtype=float)
+    traces = traces[:2, :]
+    traces *= 1000
+    # print(traces.shape)
+    formula1 = positive_synth(traces)
+    formula2 = Formula.build_formula(0.01247759930412972, "F", 3, "<=")
+    eval1 = formula1.evaluate3(traces, labels=False).flatten()
+    eval2 = formula2.evaluate3(traces, labels=False).flatten()
+    plt.plot(eval1, label="New positive synthesis")
+    plt.plot(eval2, label="TeLEX")
+    plt.legend()
+    plt.title("Robustness of synthesised formulae on pressure residual traces over 2 days")
+    plt.xlabel("Time")
+    plt.ylabel("Robustness")
+    plt.show()
+    exit()
+
+if __name__ == "__main__":
+    main()

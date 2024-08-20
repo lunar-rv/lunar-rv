@@ -13,7 +13,7 @@ def X_Y_split(data: np.ndarray, i: int):
     return X, Y
 
 def cut(data, dividend):
-    return data[data.size % dividend:]
+    return data[data.shape[0] % dividend:]
 
 def print_metrics(FP, TN, FN, TP):
     print("=========================================")
@@ -71,6 +71,7 @@ def evaluate_pressures(infile="inputs/pressures.csv"):
             train_evaluations = formula.evaluate3(residuals, labels=False)
             threshold = train_evaluations.mean(axis=1).min() if config["USE_MEAN"] else train_evaluations.min(axis=1).min()
             formula = Formula.build_formula(-threshold, "F", end, "<=")
+            print("Formula:", formula)
             test_predictions = model.predict(X_test)
             test_residuals = np.abs(test_predictions - Y_test) * 1000
             rob = get_rob(formula, test_residuals, batch_size)

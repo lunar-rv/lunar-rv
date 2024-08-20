@@ -26,8 +26,11 @@ class LargeWeightsRegressor:
 
     def fit(self, X, y):
         self.filter_model.fit(X, y)
-        weights = self.filter_model.coef_
-        self.indices_used = self.choose_top_weight_indices(weights)
+        coef = self.filter_model.coef_
+        sums = X.mean(axis=0)
+        weighted_coef = coef / sums
+        normalized_coef = weighted_coef / weighted_coef.sum()
+        self.indices_used = self.choose_top_weight_indices(normalized_coef)
         self.sensors_used = np.array([i if i < self.sensor_index else i + 1 for i in self.indices_used])
         filtered_X = X[:, self.indices_used]
         self.fit_model.fit(filtered_X, y)
@@ -45,17 +48,12 @@ class LargeWeightsRegressor:
 
 
 def main():
-    from ui import show_weights
-    from file_io import write_weights
-    from preproc import preprocess
-
-    safe_trace_file = "inputs/reversed.csv"
     # data = preprocess(safe_trace_file)[:, 27:]
     # np.savetxt("inputs/temperatures.csv", data, delimiter=",")
     data = np.genfromtxt("inputs/temperatures.csv", delimiter=",", dtype=float)
     np.set_printoptions(suppress=True)
     from sklearn.model_selection import train_test_split
-    train, test = train_test_split(data, test_size=0.2)
+    train, test = train_test_split(data, test_size=0.2, random_state=42)
     def X_Y_split(data: np.ndarray, i: int):
         X = np.delete(data, i, axis=1)
         Y = data[:, i].astype(float)
