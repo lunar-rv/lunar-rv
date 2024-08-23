@@ -82,7 +82,7 @@ class G(Predicate):
         return values
     
 class Formula:
-    def __init__(self, g: G, f: F, g_avg: G_avg, epsilon=config["EPSILON_PRESSURE"]):
+    def __init__(self, g: G, f: F, g_avg: G_avg, epsilon: float):
         self.g = g
         self.f = f
         self.g_avg = g_avg
@@ -103,9 +103,14 @@ class Formula:
         f_eval = self.f.evaluate(traces, labels)
         g_avg_eval = self.g_avg.evaluate(traces, labels)
         if return_2d:
+            print("===")
+            print(traces.shape[1] - len(self.last_residuals))
+            print(traces.shape[1])
+            print(self.last_residuals.shape)
+            print("===")
             return (
                 np.hstack((g_eval, f_eval, g_avg_eval)).reshape(-1), 
-                [np.full((traces.shape[1] * 2), g_eval.reshape(-1)[0]), f_eval.reshape(-1), g_avg_eval.reshape(-1)]
+                [np.full((traces.shape[1] - self.last_residuals.shape[1]), g_eval.reshape(-1)[0]), f_eval.reshape(-1), g_avg_eval.reshape(-1)]
             )
         else:
             return np.hstack((g_eval, f_eval, g_avg_eval))
@@ -129,14 +134,13 @@ class Formula:
             evaluation = self.evaluate(traces_arr, labels)[0]
             return evaluation
         else:
-            print("TRACES ARR SIZE", traces_arr.shape)
             evaluation, separated_evals = self.evaluate(traces_arr, labels, return_2d)
             return evaluation, separated_evals
         
 class FormulaFactory:
     @staticmethod
-    def build_tightest_formula(traces: np.ndarray, F_end: int, G_avg_end: int, reading_type="PRESSURE"):
-        epsilon = config[f"EPSILON_{reading_type}"]
+    def build_tightest_formula(traces: np.ndarray, F_end: int, G_avg_end: int):
+        epsilon = config["EPSILON_COEF"] * np.std(traces)
         def get_mu(phi_0, traces):            
             rho_0 = phi_0.evaluate(traces)
             rho_crit = rho_0.min()
@@ -165,7 +169,7 @@ class FormulaFactory:
             raise ValueError(f"Invalid operator {operator}")
         
     @staticmethod
-    def list_options(boundaries, binary=True):
+    def list_options(boundaries, binary=True, batch_size=96):
         all_options = []
         def add_options(end, op, b=None):
             if binary:
@@ -178,7 +182,7 @@ class FormulaFactory:
             for b in boundaries:
                 add_options(None, "G", b)
         for operator in ["F", "G_avg"]:
-            for end in range(1, config["BATCH_SIZE"]):
+            for end in range(1, batch_size):
                 if binary:
                     add_options(end, operator)
                 else:

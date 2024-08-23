@@ -35,14 +35,14 @@ class Formula:
             raise ValueError(f"Unknown operator: {operator}")
 
     @staticmethod
-    def list_options(boundaries=[], binary=True):
+    def list_options(boundaries=[], binary=True, batch_size=96):
         all_options = []
         def add_options(end, op, b=None):
             if binary:
                 all_options.append((0, end, op))
             else:
                 all_options.append((b, end, op))
-        for end in range(1, config["BATCH_SIZE"]):
+        for end in range(1, batch_size):
             if binary:
                 add_options(end, "F")
             else:

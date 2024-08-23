@@ -1,3 +1,1 @@
-Anomaly at sensor 1 detected at 12/01/2023
-Anomaly at sensor 2 detected at 12/01/2023
-Anomaly at sensor 1 detected at 14/01/2023
+Anomaly at sensor 2 detected at 10/01/2023

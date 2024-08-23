@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 from regressor import LargeWeightsRegressor
-from preproc import preprocess
+from preproc import preprocess_trace
 import pandas as pd
 from file_io import get_filename
 from datetime import datetime, timedelta
@@ -76,9 +76,14 @@ def print_trees(bin_classifier, anom_classifier):
         print_score(anom_classifier)
 
 def progress_bar(index, warmup_stage: int, bar_length=40):
-    progress = float(index) / float(config["WARMUP_TIME"])
-    block = int(round(bar_length * progress))
-    text = f"\rWarmup {warmup_stage}: Press Enter to continue... [{index}/{config['WARMUP_TIME']}] [{'#' * block + '-' * (bar_length - block)}]"
+    total_time = config[f"WARMUP_{warmup_stage}_TIME"]
+    progress = float(index) / float(total_time)
+    block = int(bar_length * progress)
+    text = (
+        f"\rWarmup {warmup_stage}: Press Enter to continue... "
+        f"[{index}/{total_time}] "
+        f"[{'#' * block + '-' * (bar_length - block)}]"
+    )
     sys.stdout.write(text)
     sys.stdout.flush()
 
@@ -108,12 +113,12 @@ def show_weights(sensor_index, sensor_type) -> None:
     plt.savefig(save_file)
     plt.show()
 
-def get_graph(safe_trace_file=config["SAFE_TRACE_FILE"], pressures=True):
+def get_graph(sensor_type_index, safe_trace_file=config["SAFE_TRACE_FILE"]):
     all_weights = []
     all_edges = []
-    all_data = preprocess(safe_trace_file)
+    all_data = preprocess_trace(infile=safe_trace_file)
     num_sensors = all_data.shape[1] // 2
-    indices = np.arange(num_sensors) if pressures else np.arange(num_sensors, 2*num_sensors)
+    indices = np.arange(num_sensors * sensor_type_index, num_sensors * (sensor_type_index + 1))
     relevant_data = all_data[:, indices]
     model = LargeWeightsRegressor(sensor_index=0)
     for sensor_index in range(num_sensors):
@@ -126,10 +131,6 @@ def get_graph(safe_trace_file=config["SAFE_TRACE_FILE"], pressures=True):
         all_weights.append(weights)
         all_edges.append(edges)
     return all_weights, all_edges
-
-import networkx as nx
-import numpy as np
-import matplotlib.pyplot as plt
 
 def draw_graph(edges, weights, bidirectional_only, sensor_type):
     save_file = f"{config['GRAPH_DIR']}/{sensor_type.lower()}/sensor_map.png"
@@ -157,16 +158,15 @@ def draw_graph(edges, weights, bidirectional_only, sensor_type):
     plt.savefig(save_file)
     plt.show()
 
-def plot_graph():
+def plot_graph(sensor_types):
     bidirectional_only = config["BIDIRECTIONAL_ONLY"]
-    weights, edges = get_graph(pressures=True)
-    draw_graph(edges=edges, weights=weights, bidirectional_only=bidirectional_only, sensor_type="Pressure")
-    weights, edges = get_graph(pressures=False)
-    draw_graph(edges=edges, weights=weights, bidirectional_only=bidirectional_only, sensor_type="Temperature")
+    for i, sensor_type in enumerate(sensor_types):
+        weights, edges = get_graph(sensor_type_index=i)
+        draw_graph(edges=edges, weights=weights, bidirectional_only=bidirectional_only, sensor_type=sensor_type)
 
-def print_anomaly_info(model, new_batch, formula, sensor_type):
+def print_anomaly_info(model, new_batch, formula):
     print("\nAnomaly detected!\n")
-    data = preprocess("".join(new_batch), csv=False)
+    data = preprocess_trace(new_batch=new_batch)
     X = np.delete(data, model.sensor_index, axis=1)
     y = data[:, model.sensor_index].astype(float)
     predictions = model.predict(X)
@@ -174,8 +174,8 @@ def print_anomaly_info(model, new_batch, formula, sensor_type):
     for i, (weight, index) in enumerate(zip(model.coef_, model.indices_used)):
         start = "\t" if i == 0 else " \t+ "
         print(f"{start}Sensor {index+1} x {weight}")
-    print(f"Predicted average was {predictions.mean() * 1000 if sensor_type == 'PRESSURE' else predictions.mean()}")
-    print(f"Actual average was {y.mean() * 1000 if sensor_type == 'PRESSURE' else y.mean()}")
+    print(f"Predicted average was {predictions.mean()}")
+    print(f"Actual average was {y.mean()}")
     print(f"STL formula was: {formula}")
 
 def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: list, prev_backlog_size: int, end: int) -> None:
@@ -194,9 +194,9 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
     print("Formula was:", formula)
     print(f"This means: {formula.human_readable()}.")
     print("This was not satisfied between the following times:")
-    first_reading_values = new_batch[0].split(";")
-    date = first_reading_values[1]
-    time = first_reading_values[2]
+    first_reading_values = new_batch[0].split(",")
+    date = first_reading_values[-2]
+    time = first_reading_values[-1].strip()
     datetime_str = f"{date} {time}"
     start_time = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
     bounds = get_anomaly_bounds(anomaly_indices)
@@ -219,10 +219,10 @@ def print_intro():
     print("  - 'g'   : Display a graph showing connections between sensors.")
     print("=" * 65)
     print("\nNote:")
-    print(f"  - There are two 'warmup' phases of length {config['WARMUP_TIME']} each,")
+    print(f"  - There are two 'warmup' phases of length {config['WARMUP_1_TIME']} and {config['WARMUP_2_TIME']},")
     print("    which must be completed before monitoring begins.")
     print("  - Synthetic anomalies cannot be added during the warmup phases.")
-    print("=" * 65)
+    print("=" * 65) 
 
 if __name__ == "__main__":
     from tree.formula import Formula

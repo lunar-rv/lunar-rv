@@ -13,14 +13,16 @@ def build(neg_train, pos_train):
             np.hstack((pos_train, pos_label_train)),
         )
     )
-    head = TreeNode.build_tree(train_data, max_depth=1, binary=True)
+    batch_size = neg_train.shape[1]
+    head = TreeNode.build_tree(train_data, batch_size=batch_size, max_depth=1, binary=True)
     return head
 
 
 def update(tree, new_values, label):
     label = np.array([label])
     new_trace = np.hstack((new_values, label))
-    tree.update_tree(new_trace, binary=True)
+    batch_size = new_values.size
+    tree.update_tree(new_trace, batch_size=batch_size, binary=True)
     return tree
 
 

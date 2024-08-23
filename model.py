@@ -1,4 +1,4 @@
-from preproc import preprocess
+from preproc import preprocess_trace
 import numpy as np
 from synth import positive_synth
 from graphs import plot_array
@@ -32,8 +32,6 @@ def get_residuals(
     write_weights(model, sensor_type=sensor_type)
     predictions = model.predict(X_test)
     abs_residuals = np.abs(predictions - Y_test)
-    if sensor_type == "PRESSURE":
-        abs_residuals *= 1000 # mBar
     return abs_residuals
 
 def get_safety_dist(sensor_index, sensor_type=None) -> float:
@@ -45,7 +43,7 @@ def get_safety_dist(sensor_index, sensor_type=None) -> float:
 
 def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None) -> bool:
     if formula:
-        raw_data = preprocess("".join(new_batch), csv=False)
+        raw_data = preprocess_trace(new_batch=new_batch)
         sensor_values = raw_data[:, sensor_index]
         backlog_size: int = formula.last_residuals.size if formula.last_residuals is not None else 0
         if backlog_size != 0:
@@ -68,7 +66,6 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
             print("Minimum robustness:", min_rob)
             print(f"Likelihood of robustness {mean_rob} or lower: {mean_safety_prob}")
             print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
-            shortest_length = min([len(e) for e in separated_evals])
             if config["PLOT_ANOMALY_GRAPHS"]:
                 for i in range(3):
                     phi = formula[i]
@@ -98,12 +95,13 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                         backlog_size=backlog_size,
                         sensor_type=sensor_type,
                     )
-            print_anomaly_info(model, new_batch, formula, sensor_type)
+            print_anomaly_info(model, new_batch, formula)
             return False
     return True
 
 def update_spec(
     sensor_index,
+    operators,
     bin_classifier=None,
     new_trace=None,
     new_label=None,
@@ -117,8 +115,8 @@ def update_spec(
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
 
     if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
-        prev_formula = formulae[sensor_index] if len(formulae) > sensor_index else None
-        spec = positive_synth(traces=negative_traces, prev_formula=prev_formula, reading_type=sensor_type)
+        prev_formula = formulae[sensor_index] if len(formulae) > sensor_index eslse None
+        spec = positive_synth(traces=negative_traces, prev_formula=prev_formula, operators=operators)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
         bin_classifier = build(negative_traces, positive_values)
@@ -144,7 +142,7 @@ def update_spec(
 
 
 def log_anomaly(
-    batch, trace, sensor_index, tree=None, warmup2=False, sensor_type=None
+    trace, sensor_index, tree=None, warmup2=False, sensor_type=None, 
 ) -> TreeNode:
     trace_np = np.array(trace.split(",")).astype(float)
     if tree:
@@ -158,7 +156,6 @@ def log_anomaly(
     if anomaly_type.lower() == "safe":
         with open(residuals_file, "a") as r:
             r.write("\n" + trace)
-        write_new_batch(batch, config["SAFE_TRACE_FILE"])
         return False, tree
     with open(anomalies_file, "a") as a:
         a.write("\n" + trace + "," + anomaly_type)
@@ -167,20 +164,27 @@ def log_anomaly(
     if not warmup2 and not tree:
         print("Building tree...", flush=True)
         tree = TreeNode.build_tree(
-            np.append(trace_np, anomaly_type).reshape(1, -1), binary=False, max_depth=5
+            np.append(trace_np, anomaly_type).reshape(1, -1), batch_size=trace_np.size, binary=False, max_depth=5
         )
         print("Tree built!")
     else:
-        tree.update_tree(np.append(trace_np, anomaly_type), binary=False)
+        tree.update_tree(trace=np.append(trace_np, anomaly_type), batch_size=trace_np.size, binary=False)
         tree.print_tree()
     return True, tree
+
+    # "SMALL_PRESSURE_ANOMALY_SIZE": 0.001,
+    # "LARGE_PRESSURE_ANOMALY_SIZE": 0.005,
+    # "SMALL_TEMPERATURE_ANOMALY_SIZE": 0.5,
+    # "LARGE_TEMPERATURE_ANOMALY_SIZE": 2.5,
 
 def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str) -> np.ndarray:
     if anom_type != "normal":
         pressure_indices = anomaly_indices[anomaly_indices < 27]
         temp_indices = anomaly_indices[anomaly_indices >= 27]
-        data[:, pressure_indices] += config[f"{anom_type.upper()}_PRESSURE_ANOMALY_SIZE"]
-        data[:, temp_indices] += config[f"{anom_type.upper()}_TEMPERATURE_ANOMALY_SIZE"]
+        p_increase = 0.001 if anom_type == "small" else 0.005
+        t_increase = 0.5 if anom_type == "small" else 2.5
+        data[:, pressure_indices] += p_increase
+        data[:, temp_indices] += t_increase
     return data
 
 def main():

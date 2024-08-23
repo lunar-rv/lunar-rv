@@ -9,7 +9,7 @@ with open("config.json") as config_file:
 # FIX THE CLOSENESS FUNCTION.
 contraction_fn = lambda r, b, max_size: r * np.exp((0.5 * b / max_size)-0.5)
 
-def evaluate_formula(traces, F_end, G_avg_end):
+def evaluate_formula(traces, F_end, G_avg_end, batch_size):
     formula = FormulaFactory.build_tightest_formula(
         traces=traces,
         F_end=F_end,
@@ -18,11 +18,10 @@ def evaluate_formula(traces, F_end, G_avg_end):
     rho = formula.evaluate(traces=traces, labels=False).min(axis=1)
     r = -rho.ptp()
     b = formula.f.end
-    max_size = config["BATCH_SIZE"]
-    score = contraction_fn(r, b, max_size)
+    score = contraction_fn(r, b, batch_size)
     return score
 
-def positive_synth(traces, prev_formula=None, reading_type="PRESSURE"):
+def positive_synth(traces, prev_formula=None):
     best_formula = None
     batch_size = traces.size // traces.shape[0]
     best_x, best_y, _ = hill_climbing_search(traces, batch_size, evaluate_formula)
@@ -30,7 +29,6 @@ def positive_synth(traces, prev_formula=None, reading_type="PRESSURE"):
         traces=traces,
         F_end=best_x,
         G_avg_end=best_y,
-        reading_type=reading_type
     )
     if prev_formula:
         lrv = prev_formula.last_raw_values

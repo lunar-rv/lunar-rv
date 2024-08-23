@@ -137,20 +137,26 @@ def preprocess(
         df = df.tail(length * 27)
     return final_data
 
+def preprocess_trace(new_batch=None, infile=""):
+    if new_batch is not None:
+        return np.array([list(map(float, line.split(",")[:-2])) for line in new_batch])
+    elif infile:
+        data = np.genfromtxt(infile, delimiter=",", dtype=str)
+        return data[:, :-2].astype(float)
 
 def main():
-    parser = argparse.ArgumentParser(description="Process some integers.")
-    parser.add_argument(
-        "infile", type=str, help="The CSV file containing pressure data."
-    )
-    args = parser.parse_args()
-
-    arr = preprocess(args.infile, log=False, time_features=True, season_features=True)
-    print("Array shape:", arr.shape)
-    print(arr)
-    np.set_printoptions(suppress=True)
-    print(np.sum(arr[:, -3:], axis=0))
-
+    infile = "inputs/reversed.csv"
+    df = pd.read_csv(infile, delimiter=";", decimal=".")
+    dates = df["Data Campionamento"].to_numpy()
+    times = df["ORA Campionamento"].to_numpy()
+    indices = np.arange(0, len(dates), 54)
+    times_used = times[indices]
+    dates_used = dates[indices]
+    data = preprocess(infile, time_features=False, season_features=False).astype(str)
+    pressure = data[:, :27].astype(float)
+    temperature = data[:, 27:]
+    data = np.hstack((pressure, temperature, dates_used.reshape(-1, 1), times_used.reshape(-1, 1)))
+    np.savetxt("inputs/traces.csv", data, delimiter=",", fmt="%s")
 
 if __name__ == "__main__":
     main()
