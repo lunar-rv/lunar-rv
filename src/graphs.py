@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import logging
+from tree.new_formula import G
 from datetime import datetime, timedelta
 import json
 
@@ -27,9 +28,8 @@ def plot_traces(neg_infile, pos_infile, outfile):
 def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, sensor_type: str, backlog_size: int = 0, formula=None, bounds: list = [], time_period=-1):
     trace_start_time = batch_start_time - timedelta(minutes=backlog_size * time_period)
     trace_end_time = trace_start_time + timedelta(minutes=(len(trace) - 1) * time_period)
-    int_ticks = np.linspace(0, len(trace), 9)
+    int_ticks = np.linspace(0, len(trace)-1, min(len(trace), 9))
     dt_ticks = [trace_start_time + timedelta(minutes=int(tick) * time_period) for tick in int_ticks]
-    
     plt.plot(trace, label=f"{keyword}", color='blue')
     
     for start, end in bounds:
@@ -44,7 +44,7 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
     if formula is not None:
         plt.axhline(y=formula.boundary, color="red", linestyle="--", label="Formula boundary")
     
-    if trace_start_time == trace_end_time:
+    if trace_start_time.date == trace_end_time.date:
         date_str = f"on {trace_start_time.strftime('%Y/%m/%d')}"
     else:
         date_str = f"from {trace_start_time.strftime('%Y/%m/%d')} to {trace_end_time.strftime('%Y/%m/%d')}"
@@ -53,7 +53,7 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
     
     if formula is not None:
         subtext = f"Formula: {formula}"
-        if formula.boundary is not None:
+        if formula.boundary is not None and not isinstance(formula, G):
             subtext += f"\nAnomaly Bounds: {bounds.tolist() if bounds is not None else None}"
             # Adjust text to be central and below the x-axis
             plt.text(0.5, -0.15, subtext, fontsize=10, verticalalignment='top', 

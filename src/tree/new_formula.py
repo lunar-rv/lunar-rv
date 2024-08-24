@@ -103,10 +103,10 @@ class Formula:
             return max(self.g_avg.end, self.f.end)
         if self.f is not None:
             return self.f.end
-        if self.g is not None:
-            return self.g.end
+        if self.g_avg is not None:
+            return self.g_avg.end
         else:
-            return 96
+            return 1000
     def human_readable(self, time_period):
         return "".join([f"\n\t- {phi.human_readable(time_period)}" for phi in self.__list__()])
     def evaluate(self, traces, labels=False, return_arr=False) -> np.ndarray:
@@ -128,14 +128,15 @@ class Formula:
         #     )
         # else:
         #     return np.hstack([np.array(rho) for rho in evaluations])
-    
+    def only_global(self):
+        return len(list(self)) == 1 and list(self)[0] == self.g
     def evaluate_single(self, trace, raw_values: np.ndarray, labels=True, return_arr=False):
         raw_values = raw_values.reshape(1, -1)
         traces_arr = trace.reshape(1, -1)
         traces_arr = np.hstack((self.last_residuals, traces_arr)) if self.last_residuals is not None else traces_arr
         raw_values = np.hstack((self.last_raw_values, raw_values)) if self.last_raw_values is not None else raw_values
         if self.last_residuals is None or self.max_length <= traces_arr.shape[1]:
-            if self.max_length != 1:
+            if self.max_length != 1 and not self.only_global():
                 self.last_residuals = traces_arr[:, -self.max_length + 1:]
                 self.last_raw_values = raw_values[:, -self.max_length + 1:]
             else:
@@ -191,19 +192,21 @@ class FormulaFactory:
             raise ValueError(f"Invalid operator {operator}")
         
     @staticmethod
-    def list_options(boundaries, binary=True, batch_size=96):
+    def list_options(boundaries, operators, binary=True, batch_size=96):
         all_options = []
         def add_options(end, op, b=None):
             if binary:
                 all_options.append((0, end, op))
             else:
                 all_options.append((b, end, op))
-        if binary:
-            add_options(None, "G")
-        else:
-            for b in boundaries:
-                add_options(None, "G", b)
-        for operator in ["F", "G_avg"]:
+        if "G" in operators:
+            if binary:
+                add_options(None, "G")
+            else:
+                for b in boundaries:
+                    add_options(None, "G", b)
+        bounded_operators = [phi for phi in operators if phi != "G"]
+        for operator in bounded_operators:
             for end in range(1, batch_size):
                 if binary:
                     add_options(end, operator)

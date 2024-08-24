@@ -4,7 +4,7 @@ from tree.tree import TreeNode
 from sklearn.model_selection import train_test_split
 
 
-def build(neg_train, pos_train):
+def build(neg_train, pos_train, operators):
     neg_label_train = np.full((neg_train.shape[0], 1), "Safe")
     pos_label_train = np.full((pos_train.shape[0], 1), "Anomaly")
     train_data = np.vstack(
@@ -14,15 +14,15 @@ def build(neg_train, pos_train):
         )
     )
     batch_size = neg_train.shape[1]
-    head = TreeNode.build_tree(train_data, batch_size=batch_size, max_depth=1, binary=True)
+    head = TreeNode.build_tree(train_data, batch_size=batch_size, max_depth=1, binary=True, operators=operators)
     return head
 
 
-def update(tree, new_values, label):
+def update(tree, new_values, label, operators):
     label = np.array([label])
     new_trace = np.hstack((new_values, label))
     batch_size = new_values.size
-    tree.update_tree(new_trace, batch_size=batch_size, binary=True)
+    tree.update_tree(new_trace, batch_size=batch_size, binary=True, operators=operators)
     return tree
 
 

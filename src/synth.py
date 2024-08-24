@@ -36,7 +36,7 @@ def positive_synth(traces, operators, prev_formula=None):
     if len(bounded_operators) == 1:
         best_end = grid_search_1d(traces, batch_size, evaluation_fn=evaluate_formula, operators=operators)
         best_formula_kwargs.update(best_end)
-    else:  
+    elif len(bounded_operators) > 1:  
         best_x, best_y = hill_climbing_search(traces=traces, batch_size=batch_size, evaluation_fn=evaluate_formula, operators=operators)
         best_formula_kwargs.update({
             "F_end": best_x,

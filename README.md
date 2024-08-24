@@ -13,19 +13,36 @@ cd monitor
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Export directories to path
+export PYTHONPATH=$PYTHONPATH:path/to/monitor
 ```
 
 This repository contains:
 - *spec.file*: example specification
 - *src*: directory containing monitor source code
 - *inputs*: directory containing example 
-- *outputs*: directory in which monitor logs are saved
-
+- *outputs*: directory in which monitor information is saved. This includes all prediction model weights, anomalies detected, anomaly graphs, residuals of safe traces and anomaly detection formulae.
 ## Instructions for use
 - To build and run a monitor, use the command:
 ```bash
-python rv.py {specification_file}
+python src/rv.py {specification_file}
 ```
+
+## Monitor configuration
+
+Various options for fine-tuning the monitor configuration are found in *config.json*.
+- *WARMUP_1_PROPORTION*: the monitor has two warmup stages: in stage 1, new readings are only used to train the prediction models. In stage 2, the monitor learns the typical patterns of residuals in the dataset as well. This constant determines the proportion of the 'safe' period to be spent during stage 1
+- *SMALL/LARGE_ANOMALY_COEF*: one of these constants is multiplied by each sensor's standard deviation in order to determine the size of the synthetic anomalies that may be added to a given batch, in order to test the monitor's performance on data known to be anomalous. The choice of which coefficient is used depends on whether a large or a small anomaly is requested by the user.
+- *PLOT_ANOMALY_GRAPHS*: when set to true, the monitor will display a graph of the sensor values and the residuals over a batch, whenever an anomaly is detected
+- Directories in which to save monitor outputs
+- *GAMMA*: controls the extent to which tighter F intervals are rewarded when evaluating formulae for anomaly detection
+- *EPSILON_COEF*: this constant, multiplied by the standard deviation of the cluster of robustness values for safe traces, determines the distance of the decision boundary from the least robust data point
+- *BIDIRECTIONAL_ONLY*: when this option is set to true, the sensor connection graphs will only display an edge *IJ* if Sensor I contributes significantly to Sensor J and vice versa
+- *TREE_CONFIG -> MAX_DEPTH*: the maximum depth of the anomaly classification trees
+- *TREE_CONFIG -> BETA*: a constant which determines the relative importance of STL-specific and traditional entropy measures. See report for details.
+- *WARMUP_ANOMALIES*: number of anomalies that need to be processed before the monitor switches to a binary classification approach
+
 
 ## Specification language guidelines
 - *input = <path/to/input/file>*: the file containing the input dataset (formatting guidelines are below)
@@ -47,6 +64,6 @@ For an example of an acceptable specification, see *spec.file*.
 - Each column contains all the readings for a particular sensor, ordered from earliest to most recent.
 - All the readings for a particular sensor type are concatenated into a block of shape *(num_readings, num_sensors)*
 - All the blocks are concatenated horizontally into a full dataset of shape *(num_readings, total_num_sensors)*
- Columns N+1 and N+2 contain the date and the time of the set of N sensor readings respectively, in the format *dd/mm/yyyy*,*hh/mm/ss*
+- Finally, columns N+1 and N+2 contain the date and the time of the set of N sensor readings respectively, in the format *dd/mm/yyyy*,*hh/mm/ss*
 - There must not be any missing sensor values.
 - For an example of an acceptable input format with 27 pressure sensors and 27 temperature sensors, see *inputs/traces.csv*

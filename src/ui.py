@@ -10,6 +10,7 @@ from preproc import preprocess_trace
 import pandas as pd
 from file_io import get_filename
 from datetime import datetime, timedelta
+from tree.new_formula import G
 
 with open('config.json', 'r') as file:
     config = json.load(file)
@@ -75,8 +76,8 @@ def print_trees(bin_classifier, anom_classifier):
         anom_classifier.print_tree()
         print_score(anom_classifier)
 
-def progress_bar(index, warmup_stage: int, bar_length=40):
-    total_time = config[f"WARMUP_{warmup_stage}_TIME"]
+def progress_bar(index, warmup_stage: int, warmup_times: list, bar_length=40):
+    total_time = warmup_times[warmup_stage-1]
     progress = float(index) / float(total_time)
     block = int(bar_length * progress)
     text = (
@@ -113,7 +114,7 @@ def show_weights(sensor_index, sensor_type) -> None:
     plt.savefig(save_file)
     plt.show()
 
-def get_graph(sensor_type_index, safe_trace_file=config["SAFE_TRACE_FILE"]):
+def get_graph(sensor_type_index, parser, safe_trace_file=config["SAFE_TRACE_FILE"]):
     all_weights = []
     all_edges = []
     all_data = preprocess_trace(infile=safe_trace_file)
@@ -190,6 +191,8 @@ def get_time_period(new_batch):
 def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: list, prev_backlog_size: int, end: int) -> None:
     time_period = get_time_period(new_batch)
     def get_anomaly_bounds(indices) -> list:
+        if isinstance(formula, G):
+            return ((0, len(new_batch)),)
         bounds = []
         N = len(indices)
         start_bound = None
@@ -217,7 +220,7 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
     # times = [str((start_time + timedelta(minutes=i * frequency)).time()) for i in anomaly_indices]
     
 
-def print_intro(types: list):
+def print_intro(types: list, warmup_times: tuple):
     formatted_types = f"{', '.join(types[:-1])} and {types[-1]}"
     print("=" * 65)
     print(f"Online {formatted_types} monitor".center(65))
@@ -229,7 +232,7 @@ def print_intro(types: list):
     print("  - 'g'   : Display a graph showing connections between sensors.")
     print("=" * 65)
     print("\nNote:")
-    print(f"  - There are two 'warmup' phases of length {config['WARMUP_1_TIME']} and {config['WARMUP_2_TIME']},")
+    print(f"  - There are two 'warmup' phases of length {' and '.join(warmup_times)},")
     print("    which must be completed before monitoring begins.")
     print("  - Synthetic anomalies cannot be added during the warmup phases.")
     print("=" * 65) 

@@ -16,8 +16,6 @@ def monitor_loop(parser) -> None:
     warmup1 = True
     warmup2 = False
     safe_trace_file = config["SAFE_TRACE_FILE"]
-    warmup_1_time = config["WARMUP_1_TIME"]
-    warmup_2_time = config["WARMUP_2_TIME"]
     typed_anom_classifiers = {t: None for t in parser.type}
     typed_bin_classifiers = {t: None for t in parser.type}
     typed_formulae = {t: [] for t in parser.type}
@@ -26,7 +24,10 @@ def monitor_loop(parser) -> None:
     formulae = []
     bin_classifier = None
     anomaly_statuses = []
-    progress_bar(index=0, warmup_stage=1)
+    warmup_1_time = int(config["WARMUP_1_PROPORTION"] * parser.safe)
+    warmup_2_time = parser.safe - warmup_1_time
+    warmup_times = (warmup_1_time, warmup_2_time)
+    progress_bar(index=0, warmup_stage=1, warmup_times=warmup_times)
     while True:
         prompt = " " if warmup1 or warmup2 else ">"
         response = read_user_input(prompt)
@@ -71,7 +72,7 @@ def monitor_loop(parser) -> None:
         )
         index += 1
         if warmup1:
-            progress_bar(warmup_stage=1, index=index)
+            progress_bar(warmup_stage=1, index=index, warmup_times=warmup_times)
             if index >= warmup_1_time:
                 warmup1 = False
                 warmup2 = True
@@ -79,13 +80,12 @@ def monitor_loop(parser) -> None:
             write_new_batch(new_batch=new_batch, outfile=safe_trace_file)
             continue
         if warmup2:
-            progress_bar(warmup_stage=2, index = index - warmup_1_time)
+            progress_bar(warmup_stage=2, index = index - warmup_1_time, warmup_times=warmup_times)
             if index >= warmup_1_time + warmup_2_time:
                 warmup2 = False
                 print("\nWarmup complete.")
         test = preprocess_trace(new_batch=new_batch)
         train = preprocess_trace(infile=safe_trace_file)
-        num_sensor_ids = train.shape[1] // len(parser.type)
         for i, sensor_type in enumerate(parser.type):
             prev_type = list(parser.type)[i-1]
             typed_anom_classifiers[prev_type] = copy.deepcopy(anom_classifier)
@@ -117,7 +117,7 @@ def monitor_loop(parser) -> None:
                 formula = formulae[sensor_index]
                 if not new_batch_ok(residuals=residuals, formula=formula, new_batch=new_batch, sensor_index=sensor_index, sensor_type=sensor_type):
                     confirmation, anom_classifier = log_anomaly(
-                        new_trace, sensor_index, anom_classifier, warmup2=warmup2, sensor_type=sensor_type
+                        new_trace, sensor_index, operators=parser.stl, tree=anom_classifier, warmup2=warmup2, sensor_type=sensor_type
                     )
                     if confirmation:
                         if not anomaly_statuses[sensor_index]:
@@ -156,7 +156,10 @@ def monitor_loop(parser) -> None:
 
 def run_monitor(parser) -> None:
     clear_files(parser.type)
-    print_intro(list(parser.type))
+    warmup_times = (str(int(config["WARMUP_1_PROPORTION"] * parser.safe)), 
+                    str(parser.safe - int(config["WARMUP_1_PROPORTION"] * parser.safe))
+    )
+    print_intro(types=list(parser.type), warmup_times=warmup_times)
     monitor_loop(parser)
 
 if __name__ == "__main__":

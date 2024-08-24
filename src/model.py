@@ -70,14 +70,14 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
     print(f"Likelihood of average residuals of {mean_res} or higher: {1-mean_safety_prob}")
     # print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
     if config["PLOT_ANOMALY_GRAPHS"]:
-        for i in range(3):
+        for i in range(len(list(formula))):
             phi = formula[i]
             this_evaluation = evaluations[phi][0]#[:shortest_length]
             if this_evaluation.min() >= 0:
                 continue
             anomaly_start_indices = np.where(this_evaluation < 0)[0].tolist()
             end = phi.end if phi.end is not None else formula.max_length
-            bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch, prev_backlog_size=backlog_size, end=end)
+            bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, phi, new_batch, prev_backlog_size=backlog_size, end=end)
             bounds = np.array(bounds) + backlog_size
             plot_array(
                 trace=old_sensor_values,
@@ -123,10 +123,10 @@ def update_spec(
         spec = positive_synth(traces=negative_traces, prev_formula=prev_formula, operators=operators)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
-        bin_classifier = build(negative_traces, positive_values)
+        bin_classifier = build(negative_traces, positive_values, operators=operators)
         spec = bin_classifier.formula
     else:
-        bin_classifier = update(bin_classifier, new_trace, new_label)
+        bin_classifier = update(bin_classifier, new_trace, new_label, operators=operators)
         spec = bin_classifier.formula
     formulae[sensor_index] = spec
     if not os.path.exists(spec_file):
@@ -146,7 +146,7 @@ def update_spec(
 
 
 def log_anomaly(
-    trace, sensor_index, tree=None, warmup2=False, sensor_type=None, 
+    trace, sensor_index, operators: list, tree=None, warmup2=False, sensor_type=None
 ) -> TreeNode:
     trace_np = np.array(trace.split(",")).astype(float)
     if tree:
@@ -168,11 +168,11 @@ def log_anomaly(
     if not warmup2 and not tree:
         print("Building tree...", flush=True)
         tree = TreeNode.build_tree(
-            np.append(trace_np, anomaly_type).reshape(1, -1), batch_size=trace_np.size, binary=False, max_depth=5
+            np.append(trace_np, anomaly_type).reshape(1, -1), batch_size=trace_np.size, binary=False, max_depth=5, operators=operators
         )
         print("Tree built!")
     else:
-        tree.update_tree(trace=np.append(trace_np, anomaly_type), batch_size=trace_np.size, binary=False)
+        tree.update_tree(trace=np.append(trace_np, anomaly_type), batch_size=trace_np.size, binary=False, operators=operators)
         tree.print_tree()
     return True, tree
 
