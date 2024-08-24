@@ -117,11 +117,10 @@ def get_graph(sensor_type_index, safe_trace_file=config["SAFE_TRACE_FILE"]):
     all_weights = []
     all_edges = []
     all_data = preprocess_trace(infile=safe_trace_file)
-    num_sensors = all_data.shape[1] // 2
-    indices = np.arange(num_sensors * sensor_type_index, num_sensors * (sensor_type_index + 1))
+    indices = np.arange(parser.type_indices[sensor_type_index], parser.type_indices[sensor_type_index+1])
     relevant_data = all_data[:, indices]
     model = LargeWeightsRegressor(sensor_index=0)
-    for sensor_index in range(num_sensors):
+    for sensor_index in range(len(indices)):
         model.set_sensor_index(sensor_index)
         X = np.delete(relevant_data, sensor_index, axis=1)
         y = relevant_data[:, sensor_index].astype(float)
@@ -158,10 +157,10 @@ def draw_graph(edges, weights, bidirectional_only, sensor_type):
     plt.savefig(save_file)
     plt.show()
 
-def plot_graph(sensor_types):
+def plot_graph(parser):
     bidirectional_only = config["BIDIRECTIONAL_ONLY"]
-    for i, sensor_type in enumerate(sensor_types):
-        weights, edges = get_graph(sensor_type_index=i)
+    for i, sensor_type in enumerate(parser.type):
+        weights, edges = get_graph(sensor_type_index=i, parser=parser)
         draw_graph(edges=edges, weights=weights, bidirectional_only=bidirectional_only, sensor_type=sensor_type)
 
 def print_anomaly_info(model, new_batch, formula):
@@ -178,8 +177,18 @@ def print_anomaly_info(model, new_batch, formula):
     print(f"Actual average was {y.mean()}")
     print(f"STL formula was: {formula}")
 
+def get_time_period(new_batch):
+    first = new_batch[0] # ... ,284.969993591309,283.569993972778,01/01/2023,00:00:00
+    second = new_batch[1] # ...,284.939993858337,283.589993476868,01/01/2023,00:15:00
+    time_format = "%H:%M:%S"
+    first_time = datetime.strptime(first[-9:-1], time_format)
+    second_time = datetime.strptime(second[-9:-1], time_format)
+    diff = second_time - first_time
+    time_period = int(diff.total_seconds() / 60)
+    return time_period
+
 def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: list, prev_backlog_size: int, end: int) -> None:
-    time_period = config["TIME_PERIOD"]
+    time_period = get_time_period(new_batch)
     def get_anomaly_bounds(indices) -> list:
         bounds = []
         N = len(indices)
@@ -192,25 +201,26 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
                 bounds.append((start_bound, this_value + end - prev_backlog_size - 1))
         return bounds
     print("Formula was:", formula)
-    print(f"This means: {formula.human_readable()}.")
+    print(f"This means: {formula.human_readable(time_period)}.")
     print("This was not satisfied between the following times:")
     first_reading_values = new_batch[0].split(",")
     date = first_reading_values[-2]
     time = first_reading_values[-1].strip()
     datetime_str = f"{date} {time}"
-    start_time = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
+    start_time = datetime.strptime(datetime_str, "%m/%d/%Y %H:%M:%S")
     bounds = get_anomaly_bounds(anomaly_indices)
     for interval in bounds:
-        interval_start = (start_time + timedelta(minutes = (interval[0]) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
-        interval_end = (start_time + timedelta(minutes = (interval[1]) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
+        interval_start = (start_time + timedelta(minutes = (int(interval[0])) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
+        interval_end = (start_time + timedelta(minutes = (int(interval[1])) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
         print(f"\t{interval_start} to {interval_end}")
     return bounds, start_time
     # times = [str((start_time + timedelta(minutes=i * frequency)).time()) for i in anomaly_indices]
     
 
-def print_intro():
+def print_intro(types: list):
+    formatted_types = f"{', '.join(types[:-1])} and {types[-1]}"
     print("=" * 65)
-    print("Welcome to the Online Gas Network Monitor".center(65))
+    print(f"Online {formatted_types} monitor".center(65))
     print("=" * 65)
     print("Instructions:")
     print("  - Enter : Read the next batch.")

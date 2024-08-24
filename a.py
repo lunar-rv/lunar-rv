@@ -5,6 +5,6 @@ lists = {
 }
 import numpy as np
 
-a = np.array(list((lists.values()))).flatten()
-print(a)
+a = np.array(list((lists.values())))
+b = a.std(axis=0) * 0.1
 

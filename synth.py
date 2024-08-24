@@ -1,5 +1,5 @@
 print("Loading formula synthesis functions...")
-from searching import hill_climbing_search
+from searching import hill_climbing_search, grid_search_1d
 from tree.new_formula import FormulaFactory
 import numpy as np
 import json
@@ -9,27 +9,40 @@ with open("config.json") as config_file:
 # FIX THE CLOSENESS FUNCTION.
 contraction_fn = lambda r, b, max_size: r * np.exp((0.5 * b / max_size)-0.5)
 
-def evaluate_formula(traces, F_end, G_avg_end, batch_size):
+def evaluate_formula(traces, batch_size, operators, F_end=None, G_avg_end=None):
     formula = FormulaFactory.build_tightest_formula(
+        operators=operators,
         traces=traces,
         F_end=F_end,
         G_avg_end=G_avg_end,
     )
-    rho = formula.evaluate(traces=traces, labels=False).min(axis=1)
-    r = -rho.ptp()
-    b = formula.f.end
-    score = contraction_fn(r, b, batch_size)
+    rho = formula.evaluate(traces=traces, labels=False, return_arr=True).min(axis=1)
+    if "F" in operators:
+        r = -rho.ptp()
+        b = formula.f.end
+        score = contraction_fn(r, b, batch_size)
     return score
 
-def positive_synth(traces, prev_formula=None):
+def positive_synth(traces, operators, prev_formula=None):
     best_formula = None
     batch_size = traces.size // traces.shape[0]
-    best_x, best_y, _ = hill_climbing_search(traces, batch_size, evaluate_formula)
-    best_formula = FormulaFactory.build_tightest_formula(
-        traces=traces,
-        F_end=best_x,
-        G_avg_end=best_y,
-    )
+    bounded_operators = [op for op in operators if op != "G"]
+    best_formula_kwargs = {
+        "operators": operators,
+        "traces": traces,
+        "F_end": -1,
+        "G_avg_end": -1
+    }
+    if len(bounded_operators) == 1:
+        best_end = grid_search_1d(traces, batch_size, evaluation_fn=evaluate_formula, operators=operators)
+        best_formula_kwargs.update(best_end)
+    else:  
+        best_x, best_y = hill_climbing_search(traces=traces, batch_size=batch_size, evaluation_fn=evaluate_formula, operators=operators)
+        best_formula_kwargs.update({
+            "F_end": best_x,
+            "G_avg_end": best_y
+        })
+    best_formula = FormulaFactory.build_tightest_formula(**best_formula_kwargs)
     if prev_formula:
         lrv = prev_formula.last_raw_values
         lr = prev_formula.last_residuals
@@ -58,7 +71,7 @@ def main():
     eval1 = formula1.evaluate3(traces, labels=False).flatten()
     eval2 = formula2.evaluate3(traces, labels=False).flatten()
     plt.plot(eval1, label="New positive synthesis")
-    plt.plot(eval2, label="TeLEX")
+    plt.plot(eval2, label="TeLEx")
     plt.legend()
     plt.title("Robustness of synthesised formulae on pressure residual traces over 2 days")
     plt.xlabel("Time")

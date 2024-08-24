@@ -2,15 +2,15 @@ import re
 
 class Parser:
     def __init__(self):
-        self.inputs = set(["stl", "type", "batch", "sensors", "safe"])
+        self.inputs = set(["stl", "type", "batch", "safe"])
         self.stl = set()
         self.type = set()
+        self.type_indices = [0]
         self.patterns = {
             "input": r'^input\s*=\s*"?(?P<var>.+?)"?\s*$',
             "stl":  r'^add stl\s*(?P<var>F|G|G_avg)$',      # Matches F, G, or G_avg
-            "type": r'^add type\s*(?P<var>.+)$',            # Matches any non-empty string
+            "type": r'^add type\s+(?P<var>\w+)\s+(?P<sensors>\d+)$',  # Matches 1) any non-empty string 2) any int
             "batch": r'^batch\s*=\s*(?P<var>[1-9]\d*)$',        # Matches any positive integer
-            "sensors": r'^sensors\s*=\s*(?P<var>[1-9]\d*)$',    # Matches any positive integer
             "safe": r'^safe\s*=\s*(?P<var>[1-9]\d*)$',          # Matches any positive integer
         }
         self.human_readable = {
@@ -18,7 +18,6 @@ class Parser:
             "stl": 'add stl F | G | G_avg  # One of "F", "G", or "G_avg"',
             "type": 'add type "type_name"  # Any non-empty string',
             "batch": 'batch = positive_integer  # Any positive integer, e.g., 1, 2, 100',
-            "sensors": 'sensors = positive_integer  # Any positive integer, e.g., 1, 2, 100',
             "safe": 'safe = positive_integer  # Any positive integer, e.g., 1, 2, 100',
         }
     def parse_input(self, input_line):
@@ -42,6 +41,10 @@ class Parser:
             variable = match.group("var")
             if line.startswith("add"):
                 self.__dict__[prefix].add(variable)
+                if prefix == "type":
+                    prev = self.type_indices[-1]
+                    num_sensors = match.group("sensors")
+                    self.type_indices.append(prev + int(num_sensors))
             else:
                 self.__dict__[prefix] = int(variable)
 

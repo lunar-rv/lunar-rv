@@ -9,7 +9,7 @@ from file_io import write_new_batch, write_weights, get_filename
 import json
 from scipy import stats
 from regressor import LargeWeightsRegressor
-from ui import print_anomaly_info, get_and_display_anomaly_times
+from ui import print_anomaly_info, get_and_display_anomaly_times, get_time_period
 import os
 
 model = LargeWeightsRegressor()
@@ -42,62 +42,66 @@ def get_safety_dist(sensor_index, sensor_type=None) -> float:
     return mu, sigma
 
 def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None) -> bool:
-    if formula:
-        raw_data = preprocess_trace(new_batch=new_batch)
-        sensor_values = raw_data[:, sensor_index]
-        backlog_size: int = formula.last_residuals.size if formula.last_residuals is not None else 0
-        if backlog_size != 0:
-            old_residuals = np.hstack((formula.last_residuals.flatten(), residuals))
-            old_sensor_values = np.hstack((formula.last_raw_values.flatten(), sensor_values))
-        else:
-            old_residuals = residuals
-            old_sensor_values = sensor_values
-        evaluation, separated_evals = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values, return_2d=True)
-        rob = evaluation.min()
-        if rob < 0:
-            # print("Evaluation", evaluation)
-            print("Failed to satisfy formula: ", formula)
-            mean_rob = np.round(evaluation.mean(), 4)
-            min_rob = np.round(evaluation.min(), 4)
-            mu, sigma = get_safety_dist(sensor_index, sensor_type)
-            mean_safety_prob = np.round(stats.norm.cdf(mean_rob, mu, sigma), 4)
-            min_safety_prob = np.round(stats.norm.cdf(min_rob, mu, sigma), 4)
-            print("Average robustness:", mean_rob)
-            print("Minimum robustness:", min_rob)
-            print(f"Likelihood of robustness {mean_rob} or lower: {mean_safety_prob}")
-            print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
-            if config["PLOT_ANOMALY_GRAPHS"]:
-                for i in range(3):
-                    phi = formula[i]
-                    this_evaluation = separated_evals[i]#[:shortest_length]
-                    if this_evaluation.min() >= 0:
-                        continue
-                    anomaly_start_indices = np.where(this_evaluation < 0)[0].tolist()
-                    end = phi.end if phi.end is not None else formula.max_length
-                    bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch, prev_backlog_size=backlog_size, end=end)
-                    bounds = np.array(bounds) + backlog_size
-                    plot_array(
-                        trace=old_sensor_values,
-                        sensor_index=sensor_index,
-                        keyword="Actual Sensor Values",
-                        bounds=bounds,
-                        sensor_type=sensor_type,
-                        batch_start_time=batch_start_time,
-                        backlog_size=backlog_size,
-                    )
-                    plot_array(
-                        trace=old_residuals, 
-                        sensor_index=sensor_index, 
-                        keyword="Magnitude of Residuals", 
-                        formula=phi,
-                        bounds=bounds,
-                        batch_start_time=batch_start_time,
-                        backlog_size=backlog_size,
-                        sensor_type=sensor_type,
-                    )
-            print_anomaly_info(model, new_batch, formula)
-            return False
-    return True
+    time_period = get_time_period(new_batch)
+    if formula is None:
+        return True
+    raw_data = preprocess_trace(new_batch=new_batch)
+    sensor_values = raw_data[:, sensor_index]
+    backlog_size: int = formula.last_residuals.size if formula.last_residuals is not None else 0
+    if backlog_size != 0:
+        old_residuals = np.hstack((formula.last_residuals.flatten(), residuals))
+        old_sensor_values = np.hstack((formula.last_raw_values.flatten(), sensor_values))
+    else:
+        old_residuals = residuals
+        old_sensor_values = sensor_values
+    evaluations = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values)
+    rob = np.hstack([rho.flatten() for rho in evaluations.values()])
+    if rob.min() >= 0:
+        return True
+        # print("Evaluation", evaluation)
+    print("Failed to satisfy formula: ", formula)
+    mean_res = np.round(residuals.mean(), 4)
+    # # min_rob = np.round(rob.min(), 4)
+    mu, sigma = get_safety_dist(sensor_index, sensor_type)
+    mean_safety_prob = np.round(stats.norm.cdf(mean_res, mu, sigma), 4)
+    # min_safety_prob = np.round(stats.norm.cdf(residuals.max(), mu, sigma), 4)
+    # print("Average residuals:", residuals.mean())
+    # print("Minimum residual:", residuals.max())
+    print(f"Likelihood of average residuals of {mean_res} or higher: {1-mean_safety_prob}")
+    # print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
+    if config["PLOT_ANOMALY_GRAPHS"]:
+        for i in range(3):
+            phi = formula[i]
+            this_evaluation = evaluations[phi][0]#[:shortest_length]
+            if this_evaluation.min() >= 0:
+                continue
+            anomaly_start_indices = np.where(this_evaluation < 0)[0].tolist()
+            end = phi.end if phi.end is not None else formula.max_length
+            bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, formula, new_batch, prev_backlog_size=backlog_size, end=end)
+            bounds = np.array(bounds) + backlog_size
+            plot_array(
+                trace=old_sensor_values,
+                sensor_index=sensor_index,
+                keyword="Actual Sensor Values",
+                bounds=bounds,
+                time_period=time_period,
+                sensor_type=sensor_type,
+                batch_start_time=batch_start_time,
+                backlog_size=backlog_size,
+            )
+            plot_array(
+                trace=old_residuals, 
+                sensor_index=sensor_index, 
+                keyword="Magnitude of Residuals", 
+                formula=phi,
+                bounds=bounds,
+                time_period=time_period,
+                batch_start_time=batch_start_time,
+                backlog_size=backlog_size,
+                sensor_type=sensor_type,
+            )
+    print_anomaly_info(model, new_batch, formula)
+    return False
 
 def update_spec(
     sensor_index,
@@ -115,7 +119,7 @@ def update_spec(
     positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
 
     if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
-        prev_formula = formulae[sensor_index] if len(formulae) > sensor_index eslse None
+        prev_formula = formulae[sensor_index] if len(formulae) > sensor_index else None
         spec = positive_synth(traces=negative_traces, prev_formula=prev_formula, operators=operators)
     elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
         positive_values = positive_traces[:, :-1].astype(float)
@@ -179,12 +183,16 @@ def log_anomaly(
 
 def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str) -> np.ndarray:
     if anom_type != "normal":
-        pressure_indices = anomaly_indices[anomaly_indices < 27]
-        temp_indices = anomaly_indices[anomaly_indices >= 27]
-        p_increase = 0.001 if anom_type == "small" else 0.005
-        t_increase = 0.5 if anom_type == "small" else 2.5
-        data[:, pressure_indices] += p_increase
-        data[:, temp_indices] += t_increase
+        # pressure_indices = anomaly_indices[anomaly_indices < 27]
+        # temp_indices = anomaly_indices[anomaly_indices >= 27]
+        # p_increase = 0.001 if anom_type == "small" else 0.005
+        # t_increase = 0.5 if anom_type == "small" else 2.5
+        # data[:, pressure_indices] += p_increase
+        # data[:, temp_indices] += t_increase
+        anomaly_size = data[anomaly_indices].std(axis=0)
+        if anom_type == "large":
+            anomaly_size *= 5
+        data[:, anomaly_indices] += anomaly_size
     return data
 
 def main():

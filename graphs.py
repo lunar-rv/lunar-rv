@@ -24,8 +24,7 @@ def plot_traces(neg_infile, pos_infile, outfile):
     plt.close()
 
 
-def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, sensor_type: str, backlog_size: int = 0, formula=None, bounds: list = []):
-    time_period = config["TIME_PERIOD"]
+def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, sensor_type: str, backlog_size: int = 0, formula=None, bounds: list = [], time_period=-1):
     trace_start_time = batch_start_time - timedelta(minutes=backlog_size * time_period)
     trace_end_time = trace_start_time + timedelta(minutes=(len(trace) - 1) * time_period)
     int_ticks = np.linspace(0, len(trace), 9)
@@ -39,8 +38,8 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
     plt.xlabel("Time")
     plt.xticks(int_ticks, [dt.strftime("%H:%M") for dt in dt_ticks])
     
-    units = "mBar" if sensor_type == "PRESSURE" else "Kelvin"
-    plt.ylabel(f"Sensor {sensor_index+1} {keyword} ({units})")
+    # units = "mBar" if sensor_type == "PRESSURE" else "Kelvin"
+    plt.ylabel(f"Sensor {sensor_index+1} {keyword}")
     
     if formula is not None:
         plt.axhline(y=formula.boundary, color="red", linestyle="--", label="Formula boundary")

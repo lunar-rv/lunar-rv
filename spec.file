@@ -4,11 +4,10 @@ input = "inputs/traces.csv"
 # Necessary constants for building a monitor
 safe = 20
 batch = 96
-sensors = 54
 
 # STL formula templates
-add type pressure
-add type temperature
+add type pressure 27
+add type temperature 27
 add stl F
 add stl G_avg
 add stl G

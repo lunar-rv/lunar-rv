@@ -1,57 +1,89 @@
 import numpy as np
 import random
+import itertools
 
-def grid_search(traces, batch_size, evaluation_fn):
-    best_x, best_y = None, None
+# def evaluate_formula(traces, batch_size, operators, F_end=None, G_avg_end=None):
+#     formula = FormulaFactory.build_tightest_formula(
+#         operators=operators,
+#         traces=traces,
+#         F_end=F_end,
+#         G_avg_end=G_avg_end,
+#     )
+#     rho = formula.evaluate(traces=traces, labels=False, return_arr=True).min(axis=1)
+#     if "F" in operators:
+#         r = -rho.ptp()
+#         b = formula.f.end
+#         score = contraction_fn(r, b, batch_size)
+#     return score
+
+def grid_search(traces, batch_size, evaluation_fn, operators):
+    best_params = None
     best_score = -np.inf
-    
-    for x in range(1, batch_size):
-        for y in range(1, batch_size):
-            score = evaluation_fn(traces, x, y, batch_size=batch_size)
-            if score > best_score:
-                best_x, best_y = x, y
-                best_score = score
-    
-    return best_x, best_y, best_score
+    ranges = [range(1, batch_size) for _ in operators]
+    for params in itertools.product(*ranges):
+        score = evaluation_fn(traces, *params, batch_size=batch_size, operators=operators)
+        if score > best_score:
+            best_params = params
+            best_score = score
+    return best_params, best_score
 
-def hill_climbing_search(traces, batch_size, evaluation_fn, max_iters=50):
+def grid_search_1d(traces, batch_size, evaluation_fn, operators):
+    best_score = -np.inf
+    var_type = "F_end" if "F" in operators else "G_avg_end"
+    for i in range(batch_size):
+        if "F" in operators:
+            score = evaluation_fn(traces, F_end=i, batch_size=batch_size, operators=operators)
+        elif "G_avg" in operators:
+            score = evaluation_fn(traces, G_avg_end=i, batch_size=batch_size, operators=operators)
+        else:
+            raise ValueError(f"Unrecognised 1D operators: {operators}")
+        if score > best_score:
+            best_end = i
+            best_score = score
+    return {var_type: best_end}
+
+
+def hill_climbing_search(traces, batch_size, operators, evaluation_fn, max_iters=50):
     np.random.seed(42)
+    bounded_operators = [op for op in operators if op != "G"]
+    num_vars = len(bounded_operators)
+    current_vars = np.random.randint(1, batch_size, size=num_vars)
+    args = (traces, batch_size, operators, *current_vars)
+    current_score = evaluation_fn(*args)
+    
+    for _ in range(max_iters):
+        neighbours = []
+        
+        # Generate neighbours by incrementing/decrementing each variable
+        for i in range(num_vars):
+            if current_vars[i] > 1:
+                neighbour = current_vars.copy()
+                neighbour[i] -= 1
+                neighbours.append(tuple(neighbour))
+            if current_vars[i] < batch_size - 1:
+                neighbour = current_vars.copy()
+                neighbour[i] += 1
+                neighbours.append(tuple(neighbour))
+        next_vars = None
+        next_score = current_score
+        for vars_ in neighbours:
+            args = (traces, batch_size, operators, *current_vars)
+            score = evaluation_fn(*args)
+            if score > next_score:
+                next_vars = vars_
+                next_score = score
+        
+        if next_vars is None:
+            break
+        current_vars = next_vars
+        current_score = next_score
+    return tuple(current_vars)
+
+def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, initial_temp=100, cooling_rate=0.95, max_iters=1000):
     # Random starting point
     current_x = np.random.randint(1, batch_size)
     current_y = np.random.randint(1, batch_size)
     current_score = evaluation_fn(traces, current_x, current_y, batch_size=batch_size)
-    
-    for _ in range(max_iters):
-        neighbors = [
-            (current_x - 1, current_y),
-            (current_x + 1, current_y),
-            (current_x, current_y - 1),
-            (current_x, current_y + 1)
-        ]
-        neighbors = [(x, y) for x, y in neighbors if 1 <= x < batch_size and 1 <= y < batch_size]
-        
-        next_x, next_y = None, None
-        next_score = current_score
-        
-        for x, y in neighbors:
-            score = evaluation_fn(traces, x, y, batch_size=batch_size)
-            if score > next_score:
-                next_x, next_y = x, y
-                next_score = score
-        
-        if next_x is None or next_y is None:
-            break  # No better neighbor found
-        
-        current_x, current_y = next_x, next_y
-        current_score = next_score
-    
-    return current_x, current_y, current_score
-
-def simulated_annealing_search(traces, batch_size, evaluate_formula, initial_temp=100, cooling_rate=0.95, max_iters=1000):
-    # Random starting point
-    current_x = np.random.randint(1, batch_size)
-    current_y = np.random.randint(1, batch_size)
-    current_score = evaluate_formula(traces, current_x, current_y, batch_size=batch_size)
     
     best_x, best_y = current_x, current_y
     best_score = current_score
@@ -59,7 +91,7 @@ def simulated_annealing_search(traces, batch_size, evaluate_formula, initial_tem
     temperature = initial_temp
     
     for _ in range(max_iters):
-        # Generate a random neighboring solution
+        # Generate a random neighbouring solution
         next_x = current_x + random.choice([-1, 1])
         next_y = current_y + random.choice([-1, 1])
         
@@ -67,31 +99,21 @@ def simulated_annealing_search(traces, batch_size, evaluate_formula, initial_tem
         next_x = np.clip(next_x, 1, batch_size - 1)
         next_y = np.clip(next_y, 1, batch_size - 1)
         
-        next_score = evaluate_formula(traces, next_x, next_y)
-        
-        # Calculate the change in score
+        next_score = evaluation_fn(traces, next_x, next_y, operators=operators)
         delta_score = next_score - current_score
-        
-        # Determine whether to move to the next point
         if delta_score > 0 or np.exp(delta_score / temperature) > np.random.rand():
             current_x, current_y = next_x, next_y
             current_score = next_score
-            
-            # Update best found solution
             if current_score > best_score:
                 best_x, best_y = current_x, current_y
                 best_score = current_score
-        
-        # Cool down the temperature
         temperature *= cooling_rate
-        
-        # Stop if temperature is too low
         if temperature < 1e-3:
             break
     
     return best_x, best_y, best_score
 
-def particle_swarm_optimization(traces, batch_size, evaluation_fn, num_particles=30, max_iter=100, w=0.5, c1=1.5, c2=1.5):
+def particle_swarm_optimization(traces, batch_size, operators, evaluation_fn, num_particles=30, max_iter=100, w=0.5, c1=1.5, c2=1.5):
     # Initialize the particles' positions and velocities
     particles = np.random.randint(1, batch_size, size=(num_particles, 2))
     velocities = np.random.uniform(-1, 1, size=(num_particles, 2))

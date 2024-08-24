@@ -60,7 +60,7 @@ def monitor_loop(parser) -> None:
                     break
             continue
         if response == "g":
-            plot_graph(sensor_types=parser.type)
+            plot_graph(parser=parser)
             continue
         anomaly_info = read_anomaly_indices() if response == "a" and not (warmup1 or warmup2) else ("normal", np.array([]))
         anom_type, anomaly_indices = anomaly_info
@@ -96,11 +96,11 @@ def monitor_loop(parser) -> None:
             anom_classifier = typed_anom_classifiers[sensor_type]
             bin_classifier = typed_bin_classifiers[sensor_type]
             formulae = typed_formulae[sensor_type]
-            indices_used = np.arange(num_sensor_ids * i, num_sensor_ids * (i+1))
+            indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
             train_used = train[:, indices_used]
             test = apply_anomaly(data=test, anomaly_indices=anomaly_indices, anom_type=anom_type)
             test_used = test[:, indices_used]
-            num_evaluations = 2 # parser.sensor
+            num_evaluations = 2 # train.shape[1]
             for sensor_index in range(num_evaluations):
                 if not warmup2:
                     print(f"{sensor_type.upper()} SENSOR {sensor_index + 1}")
@@ -125,6 +125,7 @@ def monitor_loop(parser) -> None:
                         anomaly_statuses[sensor_index] = True
                         formulae, bin_classifier = update_spec(
                             formulae=formulae,
+                            operators=parser.stl,
                             sensor_index=sensor_index,
                             bin_classifier=bin_classifier,
                             new_trace=residuals,
@@ -143,6 +144,7 @@ def monitor_loop(parser) -> None:
                         formulae=formulae,
                         sensor_index=sensor_index,
                         bin_classifier=bin_classifier,
+                        operators=parser.stl,
                         new_trace=residuals,
                         new_label="Safe",
                         sensor_type=sensor_type,
@@ -154,7 +156,7 @@ def monitor_loop(parser) -> None:
 
 def run_monitor(parser) -> None:
     clear_files(parser.type)
-    print_intro()
+    print_intro(list(parser.type))
     monitor_loop(parser)
 
 if __name__ == "__main__":
