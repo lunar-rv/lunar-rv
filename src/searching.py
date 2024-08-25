@@ -19,18 +19,20 @@ import itertools
 def grid_search(traces, batch_size, evaluation_fn, operators):
     best_params = None
     best_score = -np.inf
-    ranges = [range(1, batch_size) for _ in operators]
+    bounded_operators = [op for op in operators if op != "G"]
+    ranges = [range(1, batch_size) for _ in bounded_operators]
     for params in itertools.product(*ranges):
-        score = evaluation_fn(traces, *params, batch_size=batch_size, operators=operators)
+        args = (traces, batch_size, operators, *params)
+        score = evaluation_fn(*args)
         if score > best_score:
             best_params = params
             best_score = score
-    return best_params, best_score
+    return best_params
 
 def grid_search_1d(traces, batch_size, evaluation_fn, operators):
     best_score = -np.inf
     var_type = "F_end" if "F" in operators else "G_avg_end"
-    for i in range(batch_size):
+    for i in range(1, batch_size):
         if "F" in operators:
             score = evaluation_fn(traces, F_end=i, batch_size=batch_size, operators=operators)
         elif "G_avg" in operators:
@@ -80,10 +82,11 @@ def hill_climbing_search(traces, batch_size, operators, evaluation_fn, max_iters
     return tuple(current_vars)
 
 def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, initial_temp=100, cooling_rate=0.95, max_iters=1000):
+    np.random.seed(42)
     # Random starting point
     current_x = np.random.randint(1, batch_size)
     current_y = np.random.randint(1, batch_size)
-    current_score = evaluation_fn(traces, current_x, current_y, batch_size=batch_size)
+    current_score = evaluation_fn(traces, batch_size, operators, current_x, current_y)
     
     best_x, best_y = current_x, current_y
     best_score = current_score
@@ -99,7 +102,7 @@ def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, ini
         next_x = np.clip(next_x, 1, batch_size - 1)
         next_y = np.clip(next_y, 1, batch_size - 1)
         
-        next_score = evaluation_fn(traces, next_x, next_y, operators=operators)
+        next_score = evaluation_fn(traces, batch_size, operators, next_x, next_y)
         delta_score = next_score - current_score
         if delta_score > 0 or np.exp(delta_score / temperature) > np.random.rand():
             current_x, current_y = next_x, next_y
@@ -111,7 +114,7 @@ def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, ini
         if temperature < 1e-3:
             break
     
-    return best_x, best_y, best_score
+    return best_x, best_y
 
 def particle_swarm_optimization(traces, batch_size, operators, evaluation_fn, num_particles=30, max_iter=100, w=0.5, c1=1.5, c2=1.5):
     # Initialize the particles' positions and velocities

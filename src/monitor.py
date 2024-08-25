@@ -3,6 +3,7 @@ print("Loading resources...")
 from ui import read_user_input, read_anomaly_indices, print_trees, progress_bar, show_weights, plot_graph, print_intro
 from file_io import clear_files, get_new_batch, write_new_batch, end_anomaly, start_anomaly, get_filename
 from model import get_residuals, update_spec, log_anomaly, new_batch_ok, apply_anomaly
+from functools import reduce
 from preproc import preprocess_trace
 import numpy as np
 import json
@@ -100,7 +101,7 @@ def monitor_loop(parser) -> None:
             train_used = train[:, indices_used]
             test = apply_anomaly(data=test, anomaly_indices=anomaly_indices, anom_type=anom_type)
             test_used = test[:, indices_used]
-            num_evaluations = 2 # train.shape[1]
+            num_evaluations = len(indices_used)
             for sensor_index in range(num_evaluations):
                 if not warmup2:
                     print(f"{sensor_type.upper()} SENSOR {sensor_index + 1}")
@@ -149,8 +150,9 @@ def monitor_loop(parser) -> None:
                         new_label="Safe",
                         sensor_type=sensor_type,
                     )
-        all_statuses = np.array(list(typed_anomaly_statuses.values())).flatten()
-        if warmup2 or not np.any(all_statuses):
+        all_statuses = list(typed_anomaly_statuses.values())
+        all_statuses_concat = np.array(reduce(lambda x, y: x + y, all_statuses))
+        if warmup2 or not np.any(all_statuses_concat):
             write_new_batch(new_batch=new_batch, outfile=safe_trace_file)
 
 

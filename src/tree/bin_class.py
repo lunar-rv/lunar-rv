@@ -14,7 +14,8 @@ def build(neg_train, pos_train, operators):
         )
     )
     batch_size = neg_train.shape[1]
-    head = TreeNode.build_tree(train_data, batch_size=batch_size, max_depth=1, binary=True, operators=operators)
+    head = TreeNode.build_tree(train_data, batch_size=batch_size, max_depth=2, binary=True, operators=operators)
+    head.print_tree()
     return head
 
 
@@ -22,7 +23,7 @@ def update(tree, new_values, label, operators):
     label = np.array([label])
     new_trace = np.hstack((new_values, label))
     batch_size = new_values.size
-    tree.update_tree(new_trace, batch_size=batch_size, binary=True, operators=operators)
+    tree.update_tree(trace=new_trace, batch_size=batch_size, binary=True, operators=operators)
     return tree
 
 

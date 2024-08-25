@@ -82,11 +82,10 @@ class G(Predicate):
         return values
     
 class Formula:
-    def __init__(self, epsilon: float, g: G = None, f: F = None, g_avg: G_avg = None):
+    def __init__(self, g: G = None, f: F = None, g_avg: G_avg = None):
         self.g = g
         self.f = f
         self.g_avg = g_avg
-        self.epsilon = epsilon
         self.last_residuals = None
         self.last_raw_values = None
     def __repr__(self):
@@ -155,7 +154,7 @@ class FormulaFactory:
     @staticmethod
     def build_tightest_formula(traces: np.ndarray, operators: list, F_end: int = -1, G_avg_end: int = -1):
         G_end = None
-        epsilon = config["EPSILON_COEF"] * np.std(traces)
+        epsilon = config["EPSILON_COEF"] * np.std(traces) + 1e-8
         def get_mu(phi_0, traces):
             rho_0 = phi_0.evaluate(traces)
             rho_crit = rho_0.min()
@@ -168,7 +167,7 @@ class FormulaFactory:
             phi_0 = Class(boundary=0, end=end)
             mu = get_mu(phi_0, traces)
             kwargs[op.lower()] = Class(boundary=mu, end=end)
-        return Formula(epsilon, **kwargs)
+        return Formula(**kwargs)
         # f_0 = F(boundary=0, end=F_end)
         # g_avg_0 = G_avg(boundary=0, end=G_avg_end)
         # g_0 = G(boundary=0)

@@ -11,6 +11,7 @@ from scipy import stats
 from regressor import LargeWeightsRegressor
 from ui import print_anomaly_info, get_and_display_anomaly_times, get_time_period
 import os
+from tree.new_formula import Formula
 
 model = LargeWeightsRegressor()
 with open('config.json', 'r') as file:
@@ -41,7 +42,7 @@ def get_safety_dist(sensor_index, sensor_type=None) -> float:
     mu = np.mean(safe_traces)
     return mu, sigma
 
-def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None) -> bool:
+def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None, print_info=True) -> bool:
     time_period = get_time_period(new_batch)
     if formula is None:
         return True
@@ -59,15 +60,16 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
     if rob.min() >= 0:
         return True
         # print("Evaluation", evaluation)
-    print("Failed to satisfy formula: ", formula)
-    mean_res = np.round(residuals.mean(), 4)
-    # # min_rob = np.round(rob.min(), 4)
-    mu, sigma = get_safety_dist(sensor_index, sensor_type)
-    mean_safety_prob = np.round(stats.norm.cdf(mean_res, mu, sigma), 4)
-    # min_safety_prob = np.round(stats.norm.cdf(residuals.max(), mu, sigma), 4)
-    # print("Average residuals:", residuals.mean())
-    # print("Minimum residual:", residuals.max())
-    print(f"Likelihood of average residuals of {mean_res} or higher: {1-mean_safety_prob}")
+    if print_info:
+        print("Failed to satisfy formula: ", formula)
+        mean_res = np.round(residuals.mean(), 4)
+        # # min_rob = np.round(rob.min(), 4)
+        mu, sigma = get_safety_dist(sensor_index, sensor_type)
+        mean_safety_prob = np.round(stats.norm.cdf(mean_res, mu, sigma), 4)
+        # min_safety_prob = np.round(stats.norm.cdf(residuals.max(), mu, sigma), 4)
+        # print("Average residuals:", residuals.mean())
+        # print("Minimum residual:", residuals.max())
+        print(f"Likelihood of average residuals of {mean_res} or higher: {1-mean_safety_prob}")
     # print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
     if config["PLOT_ANOMALY_GRAPHS"]:
         for i in range(len(list(formula))):
@@ -100,7 +102,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                 backlog_size=backlog_size,
                 sensor_type=sensor_type,
             )
-    print_anomaly_info(model, new_batch, formula)
+    # print_anomaly_info(model, new_batch, formula)
     return False
 
 def update_spec(
@@ -112,22 +114,40 @@ def update_spec(
     formulae=[],
     sensor_type=None,
 ) -> tuple:
+    def build_full_formula(phi):
+        operator = phi.__class__.__name__.lower()
+        spec = Formula(**{operator:bin_classifier.formula})
+        last_formula = formulae[sensor_index]
+        spec.last_residuals = last_formula.last_residuals
+        spec.last_raw_values = last_formula.last_raw_values
+        return spec
     spec_file = get_filename("specs", sensor_index, suffix=".stl", remove_plural=True, sensor_type=sensor_type)
     residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
     anomalies_file = get_filename("anomalies", sensor_index, sensor_type=sensor_type)
-    negative_traces = np.genfromtxt(residuals_file, delimiter=",", dtype=float)
-    positive_traces = np.genfromtxt(anomalies_file, delimiter=",")
-
-    if len(positive_traces) < config["WARMUP_ANOMALIES"] or positive_traces.ndim == 1:
+    positive_traces = np.genfromtxt(residuals_file, delimiter=",", dtype=float)
+    try:
+        negative_traces = np.genfromtxt(anomalies_file, delimiter=",")
+    except FileNotFoundError:
+        negative_traces = np.array([])
+    if len(negative_traces) < config["WARMUP_ANOMALIES"] or negative_traces.ndim == 1:
         prev_formula = formulae[sensor_index] if len(formulae) > sensor_index else None
-        spec = positive_synth(traces=negative_traces, prev_formula=prev_formula, operators=operators)
-    elif len(positive_traces) == config["WARMUP_ANOMALIES"]:
-        positive_values = positive_traces[:, :-1].astype(float)
-        bin_classifier = build(negative_traces, positive_values, operators=operators)
-        spec = bin_classifier.formula
+        spec = positive_synth(traces=positive_traces, prev_formula=prev_formula, operators=operators)
+    elif len(negative_traces) == config["WARMUP_ANOMALIES"]:
+        negative_values = negative_traces[:, :-1].astype(float)
+        bin_classifier = build(positive_traces, negative_values, operators=operators)
+        try:
+            spec = build_full_formula(bin_classifier.formula)
+        except TypeError:
+            print(bin_classifier)
+            print(bin_classifier.formula)
+            bin_classifier.print_tree()
+            print("==")
+            print(negative_values.shape)
+            print(positive_traces.shape)
+            exit()
     else:
         bin_classifier = update(bin_classifier, new_trace, new_label, operators=operators)
-        spec = bin_classifier.formula
+        spec = build_full_formula(phi=bin_classifier.formula)
     formulae[sensor_index] = spec
     if not os.path.exists(spec_file):
         with open(spec_file, "w"):
@@ -193,6 +213,9 @@ def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str)
         if anom_type == "large":
             anomaly_size *= 5
         data[:, anomaly_indices] += anomaly_size
+    print("APPLY ANOMALY: LARGE = ", data.std(axis=0) * 5)
+    print("SMALL = ", data.std(axis=0))
+    exit()
     return data
 
 def main():

@@ -91,8 +91,9 @@ def split_with_formula(traces: np.ndarray, formula, return_traces=False, binary=
     labels = traces[:, -1]
     if binary:
         threshold = find_best_binary_threshold(evaluations, labels, n=20)
-        formula.boundary = -threshold
-        evaluations = formula.evaluate(traces).min(axis=1)
+        epsilon = 1e-8
+        formula.boundary = epsilon - threshold # For floating point arithmetic errors where value is close to 0
+        evaluations = formula.evaluate(traces, labels=True).min(axis=1)
     left_lab = labels[evaluations > 0]
     left_rob = evaluations[evaluations > 0]
     right_lab = labels[evaluations <= 0]
@@ -222,6 +223,8 @@ class TreeNode:
             traces, formula, return_traces=True, binary=binary
         )
         if len(left_traces) == 0 or len(right_traces) == 0:
+            if binary and depth == 0:
+                print("Best formula was", formula, "which didn't work")
             return TreeNode(None, None, traces, None, value=choose_majority(labels), max_depth=max_depth)
         left_node = TreeNode.build_tree(left_traces, batch_size, depth=depth+1, max_depth=max_depth, binary=binary, operators=operators)
         right_node = TreeNode.build_tree(right_traces, batch_size, depth=depth+1, max_depth=max_depth, binary=binary, operators=operators)

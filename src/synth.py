@@ -1,5 +1,5 @@
 print("Loading formula synthesis functions...")
-from searching import hill_climbing_search, grid_search_1d
+import searching
 from tree.new_formula import FormulaFactory
 import numpy as np
 import json
@@ -17,10 +17,10 @@ def evaluate_formula(traces, batch_size, operators, F_end=None, G_avg_end=None):
         G_avg_end=G_avg_end,
     )
     rho = formula.evaluate(traces=traces, labels=False, return_arr=True).min(axis=1)
+    score = -rho.ptp()
     if "F" in operators:
-        r = -rho.ptp()
         b = formula.f.end
-        score = contraction_fn(r, b, batch_size)
+        score = contraction_fn(score, b, batch_size)
     return score
 
 def positive_synth(traces, operators, prev_formula=None):
@@ -34,10 +34,10 @@ def positive_synth(traces, operators, prev_formula=None):
         "G_avg_end": -1
     }
     if len(bounded_operators) == 1:
-        best_end = grid_search_1d(traces, batch_size, evaluation_fn=evaluate_formula, operators=operators)
+        best_end = searching.grid_search_1d(traces, batch_size, evaluation_fn=evaluate_formula, operators=operators)
         best_formula_kwargs.update(best_end)
     elif len(bounded_operators) > 1:  
-        best_x, best_y = hill_climbing_search(traces=traces, batch_size=batch_size, evaluation_fn=evaluate_formula, operators=operators)
+        best_x, best_y = searching.simulated_annealing_search(traces=traces, batch_size=batch_size, evaluation_fn=evaluate_formula, operators=operators)
         best_formula_kwargs.update({
             "F_end": best_x,
             "G_avg_end": best_y

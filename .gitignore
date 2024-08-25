@@ -1,9 +1,8 @@
-archive/
+src/archive/
 synth.log
-tmp.py
-__pycache__
-inputs/
-tree/__pycache__
+src/tmp.py
+src/__pycache__
+src/tree/__pycache__
 outputs/weights/pressure/*.csv
 outputs/weights/temperature/*.csv
 outputs/residuals/pressure/*.csv
@@ -17,6 +16,6 @@ outputs/graphs/pressure/*
 numpy/*
 *.png
 *.npy
-alternative/*
+src/alternative/*
 outputs/log.txt
 inputs/*.csv

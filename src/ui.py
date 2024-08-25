@@ -92,6 +92,7 @@ def show_weights(sensor_index, sensor_type) -> None:
     filename = get_filename("weights", sensor_index, sensor_type=sensor_type)
     df = pd.read_csv(filename)
     indices = df.columns.astype(int).to_numpy()
+    adjusted_indices = [i + 1 if i < sensor_index else i for i in indices]
     weights = df.iloc[0].to_numpy()
     def weight_to_color(weight, max_positive_weight, max_negative_weight):
         if weight >= 0:
@@ -105,12 +106,12 @@ def show_weights(sensor_index, sensor_type) -> None:
     colours = [weight_to_color(w, max_positive_weight, max_negative_weight) for w in weights]
     save_file = f"{config['GRAPH_DIR']}/{sensor_type.lower()}/sensor_{sensor_index+1}.png"
     plt.figure(figsize=(8, 5))
-    plt.bar(indices, weights, color=colours)
+    plt.bar(adjusted_indices, weights, color=colours)
     plt.xlabel('Feature Index')
     plt.ylabel('Weights')
     plt.title('Model Weights')
     plt.grid(True)
-    plt.xticks(indices)
+    plt.xticks(adjusted_indices)
     plt.savefig(save_file)
     plt.show()
 
