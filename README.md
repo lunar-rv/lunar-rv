@@ -54,14 +54,14 @@ Offline mode is for evaluating the program.
 - *ADD_ANOMALIES_OFFLINE*: add synthetic anomalies to the data when running the monitor offline. This makes it possible to evaluate the model's ability to recall actual anomalies.
 
 ## Specification language guidelines
-- *input = <path/to/input/file>*: the file containing the input dataset (formatting guidelines are below)
+- *input = \<path/to/input/file\>*: the file containing the input dataset (formatting guidelines are below)
 - *Necessary constants*
-    - *safe = <integer>*: the number of initial traces that are classified as safe, which are used by the monitor to learn sensor patterns
-    - *batch = <integer>*: the number of time intervals to process per batch
-- *add stl <F/G/G_avg>*
+    - *safe = \<integer\>*: the number of initial traces that are classified as safe, which are used by the monitor to learn sensor patterns
+    - *batch = \<integer\>*: the number of time intervals to process per batch
+- *add stl \<F/G/G_avg\>*
     - Adds a temporal logic operator (*F*, *G* or *G_avg*) to the anomaly detection template.
     - At least one operator must be selected.
-- *add type <reading_type> <num_sensors>*
+- *add type \<reading_type\> \<num_sensors\>*
     - Adds a new reading type to evaluate from the traces.
     - At least one type must be selected.
     - This is followed by an integer argument which represents the number of sensors for that reading type in the input dataset. For example, *add type pressure 27* will classify 27 columns in the dataset as pressure readings.
