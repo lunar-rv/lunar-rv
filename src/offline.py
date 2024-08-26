@@ -227,7 +227,7 @@ def testing_3(parser):
             num_total = 0
             num_sensors_used = len(indices_used)
             type_anomaly_times = []
-            print("Average anomaly size:", data_used.std(axis=0).mean() * anomaly_coef)
+            # print("Average anomaly size:", data_used.std(axis=0).mean() * anomaly_coef)
             for sensor_index in range(num_sensors_used):
                 anomaly_times = []
                 X_train_lr, Y_train_lr = X_Y_split(train_lr, sensor_index)
@@ -242,7 +242,7 @@ def testing_3(parser):
                 residuals = cut(residuals, batch_size)
                 residuals = residuals.reshape(-1, batch_size)
                 formula = positive_synth(residuals, operators=parser.stl)
-                print(f"Sensor {sensor_index+1} formula: {formula}")
+                # print(f"Sensor {sensor_index+1} formula: {formula}")
                 X_train = np.vstack((X_train_lr, X_train_stl))
                 Y_train = np.hstack((Y_train_lr, Y_train_stl))
                 X_test, Y_test = X_Y_split(test, sensor_index)
@@ -251,7 +251,7 @@ def testing_3(parser):
                 X_test = X_test.reshape(-1, batch_size, num_sensors_used - 1)
                 Y_test = Y_test.reshape(-1, batch_size)
                 anomaly_size = Y_test.std() * anomaly_coef
-                print("Anomaly size:", anomaly_size * anomaly_coef)
+                # print("Anomaly size:", anomaly_size * anomaly_coef)
                 Y_test += anomaly_size
                 num_anomalies = 0
                 current_time = batch_start_time + timedelta(parser.safe * diff_minutes * batch_size)
@@ -279,7 +279,7 @@ def testing_3(parser):
                 num_total += len(Y_test)
                 type_anomaly_times.append(anomaly_times)
             print("=" * 65)
-            print(f"For type {sensor_type}, anomaly coefficient {anomaly_coef}:")
+            print(f"For type {sensor_type}, anomaly coefficient {anomaly_coef}")
             print(f"{total_num_anomalies}/{num_total} anomalies detected")
             print(f"Anomaly detection rate: {total_num_anomalies/num_total}")
             print("=" * 65)

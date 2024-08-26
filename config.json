@@ -12,7 +12,7 @@
     "LOG_FILE": "outputs/log.txt",
     "GRAPH_DIR": "outputs/graphs",
     "BIDIRECTIONAL_ONLY": false,
-    "ONLINE": true,
+    "ONLINE": false,
     "PLOT_RESIDUALS_GRAPHS": false,
     "ADD_ANOMALIES_OFFLINE": false,
     "GAMMA": 1000,
