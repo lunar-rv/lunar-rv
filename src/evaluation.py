@@ -7,9 +7,11 @@ import json
 with open("config.json") as config_file:
     config = json.load(config_file)
 
-def X_Y_split(data: np.ndarray, i: int):
-    X = np.delete(data, i, axis=1)
-    Y = data[:, i].astype(float)
+def X_Y_split(data: np.ndarray, i: int, axis=1):
+    index = [slice(None)] * data.ndim
+    index[axis] = i
+    Y = data[tuple(index)].astype(float)
+    X = np.delete(data, i, axis=axis)
     return X, Y
 
 def cut(data, dividend):

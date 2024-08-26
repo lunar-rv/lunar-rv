@@ -1,7 +1,7 @@
 from parser import Parser
 from monitor import run_monitor
 import argparse
-from offline import offline_ad
+from offline import offline_ad#, testing_2, testing_3
 import json
 with open("config.json", "r") as config_file:
     config = json.load(config_file)

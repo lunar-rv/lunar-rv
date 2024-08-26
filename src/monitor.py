@@ -108,8 +108,9 @@ def monitor_loop(parser) -> None:
                 elif len(anomaly_statuses) <= sensor_index:
                     anomaly_statuses.append(False)
                     formulae.append(None)
+                start = max(len(train_used) - 30 * parser.batch, 0)
                 residuals = get_residuals(
-                    train=train_used,
+                    train=train_used[start:],
                     test=test_used,
                     sensor_index=sensor_index,
                     sensor_type=sensor_type,

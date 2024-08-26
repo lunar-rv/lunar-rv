@@ -9,6 +9,7 @@ import numpy as np
 from preproc import preprocess_trace
 from model import new_batch_ok, apply_anomaly
 import matplotlib.pyplot as plt
+import pickle
 
 with open("config.json") as config_file:
     config = json.load(config_file)
@@ -20,7 +21,7 @@ def plot_residuals(actual, predictions, sensor_index, sensor_type):
     plt.legend()
     plt.show()
 
-def offline_ad(parser, add_anomalies=False):
+def offline_ad(parser):
     infile = parser.infile
     batch_size = parser.batch
     with open(infile, "r") as file:
@@ -37,8 +38,6 @@ def offline_ad(parser, add_anomalies=False):
     warmup_1_time = int(config["WARMUP_1_PROPORTION"] * parser.safe)
     warmup_2_time = parser.safe - warmup_1_time
     for i, sensor_type in enumerate(parser.type):
-        if i == 0:
-            continue
         indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
         data_used = data[:, indices_used]
         w_1 = warmup_1_time * batch_size
@@ -49,7 +48,9 @@ def offline_ad(parser, add_anomalies=False):
         total_num_anomalies = 0
         num_total = 0
         num_sensors_used = len(indices_used)
+        type_anomaly_times = []
         for sensor_index in range(num_sensors_used):
+            anomaly_times = []
             X_train_lr, Y_train_lr = X_Y_split(train_lr, sensor_index)
             X_train_stl, Y_train_stl = X_Y_split(train_stl, sensor_index)
             # model.set_sensor_index(sensor_index)
@@ -65,35 +66,42 @@ def offline_ad(parser, add_anomalies=False):
             print(f"Sensor {sensor_index+1} formula: {formula}")
             X_train = np.vstack((X_train_lr, X_train_stl))
             Y_train = np.hstack((Y_train_lr, Y_train_stl))
-            model.fit(X_train, Y_train)
             X_test, Y_test = X_Y_split(test, sensor_index)
             X_test = cut(X_test, batch_size)
             Y_test = cut(Y_test, batch_size)
             X_test = X_test.reshape(-1, batch_size, num_sensors_used - 1)
             Y_test = Y_test.reshape(-1, batch_size)
             if config["ADD_ANOMALIES_OFFLINE"]:
-                anomaly_size = Y_test.std()
+                anomaly_size = 0#Y_test.std()
                 Y_test += anomaly_size
             num_anomalies = 0
             current_time = batch_start_time + timedelta(parser.safe * diff_minutes * batch_size)
             index = w_1 + w_2
             for X, Y in zip(X_test, Y_test):
                 new_batch = raw_data[index:index+batch_size]
+                start = max(0, len(Y_train) - 30 * batch_size)
+                X_train_window = X_train[start:]
+                Y_train_window = Y_train[start:]
+                model.fit(X_train_window, Y_train_window) # refit model
                 batch_residuals = np.abs(model.predict(X) - Y)
                 if not new_batch_ok(batch_residuals, formula, new_batch=new_batch, sensor_index=sensor_index, sensor_type=sensor_type, print_info=False):
                     num_anomalies += 1
-                    if not add_anomalies:
+                    if not config["ADD_ANOMALIES_OFFLINE"]:
                         formula = positive_synth(residuals, operators=parser.stl)
+                    anomaly_times.append(index // batch_size)
                 else:
                     residuals = np.vstack((residuals, batch_residuals))
                     X_train = np.vstack((X_train, X))
                     Y_train = np.hstack((Y_train, Y))
-                    model.fit(X_train, Y_train) # refit model
                 current_time += timedelta(diff_minutes * batch_size)
                 index += batch_size
             print(f"{num_anomalies}/{len(Y_test)} anomalies detected")
             total_num_anomalies += num_anomalies
             num_total += len(Y_test)
+            type_anomaly_times.append(anomaly_times)
+        
+        with open(f"anomaly_times_{sensor_type}.pkl", "wb") as f:
+            pickle.dump(type_anomaly_times, f)
             # for i in anomalies:
             #     print(train_length)
             #     real_train_length = train_length * num_sensors_used * 2
@@ -111,6 +119,171 @@ def offline_ad(parser, add_anomalies=False):
         print(f"{total_num_anomalies}/{num_total} anomalies detected")
         print(f"Anomaly detection rate: {total_num_anomalies/num_total}")
         print("=" * 65)
+
+def testing_1(parser, add_anomalies=False):
+    infile = parser.infile
+    batch_size = parser.batch
+    with open(infile, "r") as file:
+        raw_data = file.readlines()
+    first_line = raw_data[1].split(",")
+    second_line = raw_data[2].split(",")
+    date_1 = first_line[-2]
+    time_1 = first_line[-1].strip()
+    time_2 = second_line[-1].strip()
+    diff = datetime.strptime(time_1, "%H:%M:%S") - datetime.strptime(time_2, "%H:%M:%S")
+    diff_minutes = diff.total_seconds() // 60
+    batch_start_time = datetime.strptime(date_1 + " " + time_1, "%d/%m/%Y %H:%M:%S")
+    data = preprocess_trace(infile=infile)
+    proportion_data = np.empty((2, 9))
+    for warmup_proportion in range(2, 20, 2):
+        warmup_1_time = warmup_proportion
+        warmup_2_time = 20 - warmup_1_time
+        for i, sensor_type in enumerate(parser.type):
+            indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
+            data_used = data[:, indices_used]
+            w_1 = warmup_1_time * batch_size
+            w_2 = warmup_2_time * batch_size
+            train_lr = data_used[:w_1, :]
+            train_stl = data_used[w_1:w_1+w_2, :]
+            train = data_used[:w_1+w_2]
+            test = data_used[w_1+w_2:, :]
+            total_num_anomalies = 0
+            num_total = 0
+            num_sensors_used = len(indices_used)
+            all_residuals = []
+            for sensor_index in range(num_sensors_used):
+                X_train_lr, Y_train_lr = X_Y_split(train_lr, sensor_index)
+                X_train_stl, Y_train_stl = X_Y_split(train_stl, sensor_index)
+                # model.set_sensor_index(sensor_index)
+                model = LinearRegression()
+                model.fit(X_train_lr, Y_train_lr)
+                predictions = model.predict(X_train_stl)
+                residuals = np.abs(predictions - Y_train_stl)
+                all_residuals.append(residuals.mean())
+                continue
+            x = i
+            y = int(warmup_proportion // 2) - 1
+            proportion_data[x, y] = np.mean(all_residuals)
+    for data in proportion_data:
+        print(data.tolist())
+        
+def testing_2(parser, add_anomalies=False):
+    infile = parser.infile
+    batch_size = parser.batch
+    with open(infile, "r") as file:
+        data = preprocess_trace(infile=infile)
+    safe = batch_size#parser.safe * batch_size
+    train = data[:safe].reshape(-1, batch_size, data.shape[1])[0]
+    test = data[safe:-1, :].reshape(-1, batch_size, data.shape[1])
+    all_residuals = np.empty((2, 27, len(test)))
+    for i, sensor_type in enumerate(parser.type):
+        indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
+        num_sensors_used = len(indices_used)
+        model = LinearRegression()
+        train_used = train[:, indices_used]
+        test_used = test[:, :, indices_used]
+        for j in range(num_sensors_used):
+            X_train, Y_train = X_Y_split(train_used, j, axis=1)
+            X_test, Y_test = X_Y_split(test_used, j, axis=2)
+            print(f"SENSOR {j}")
+            for k in range(len(test_used)):
+                X = X_test[k]
+                y = Y_test[k]
+                model.fit(X_train, Y_train)
+                predictions = model.predict(X)
+                residuals = np.abs(predictions - y)
+                all_residuals[i, j, k] = residuals.mean()
+                X_train = np.vstack((X_train, X))
+                Y_train = np.hstack((Y_train, y))
+    np.save("lr_residuals.npy", all_residuals)
+
+
+def testing_3(parser):
+    infile = parser.infile
+    batch_size = parser.batch
+    with open(infile, "r") as file:
+        raw_data = file.readlines()
+    first_line = raw_data[1].split(",")
+    second_line = raw_data[2].split(",")
+    date_1 = first_line[-2]
+    time_1 = first_line[-1].strip()
+    time_2 = second_line[-1].strip()
+    diff = datetime.strptime(time_1, "%H:%M:%S") - datetime.strptime(time_2, "%H:%M:%S")
+    diff_minutes = diff.total_seconds() // 60
+    batch_start_time = datetime.strptime(date_1 + " " + time_1, "%d/%m/%Y %H:%M:%S")
+    data = preprocess_trace(infile=infile)
+    warmup_1_time = int(config["WARMUP_1_PROPORTION"] * parser.safe)
+    warmup_2_time = parser.safe - warmup_1_time
+    for anomaly_coef in np.arange(1, 0.1, -0.1):
+        for i, sensor_type in enumerate(parser.type):
+            indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
+            data_used = data[:, indices_used]
+            w_1 = warmup_1_time * batch_size
+            w_2 = warmup_2_time * batch_size
+            train_lr = data_used[:w_1, :]
+            train_stl = data_used[w_1:w_1+w_2, :]
+            test = data_used[w_1 + w_2:, :]
+            total_num_anomalies = 0
+            num_total = 0
+            num_sensors_used = len(indices_used)
+            type_anomaly_times = []
+            print("Average anomaly size:", data_used.std(axis=0).mean() * anomaly_coef)
+            for sensor_index in range(num_sensors_used):
+                anomaly_times = []
+                X_train_lr, Y_train_lr = X_Y_split(train_lr, sensor_index)
+                X_train_stl, Y_train_stl = X_Y_split(train_stl, sensor_index)
+                # model.set_sensor_index(sensor_index)
+                model = LargeWeightsRegressor()
+                model.fit(X_train_lr, Y_train_lr)
+                predictions = model.predict(X_train_stl)
+                residuals = np.abs(predictions - Y_train_stl)
+                if config["PLOT_RESIDUALS_GRAPHS"]:
+                    plot_residuals(actual=Y_train_stl, predictions=predictions, sensor_type=sensor_type, sensor_index=sensor_index)
+                residuals = cut(residuals, batch_size)
+                residuals = residuals.reshape(-1, batch_size)
+                formula = positive_synth(residuals, operators=parser.stl)
+                print(f"Sensor {sensor_index+1} formula: {formula}")
+                X_train = np.vstack((X_train_lr, X_train_stl))
+                Y_train = np.hstack((Y_train_lr, Y_train_stl))
+                X_test, Y_test = X_Y_split(test, sensor_index)
+                X_test = cut(X_test, batch_size)
+                Y_test = cut(Y_test, batch_size)
+                X_test = X_test.reshape(-1, batch_size, num_sensors_used - 1)
+                Y_test = Y_test.reshape(-1, batch_size)
+                anomaly_size = Y_test.std() * anomaly_coef
+                print("Anomaly size:", anomaly_size * anomaly_coef)
+                Y_test += anomaly_size
+                num_anomalies = 0
+                current_time = batch_start_time + timedelta(parser.safe * diff_minutes * batch_size)
+                index = w_1 + w_2
+                for X, Y in zip(X_test, Y_test):
+                    new_batch = raw_data[index:index+batch_size]
+                    start = max(0, len(Y_train) - 30 * batch_size)
+                    X_train_window = X_train[start:]
+                    Y_train_window = Y_train[start:]
+                    model.fit(X_train_window, Y_train_window) # refit model
+                    batch_residuals = np.abs(model.predict(X) - Y)
+                    if not new_batch_ok(batch_residuals, formula, new_batch=new_batch, sensor_index=sensor_index, sensor_type=sensor_type, print_info=False):
+                        num_anomalies += 1
+                        # if not config["ADD_ANOMALIES_OFFLINE"]:
+                        #     formula = positive_synth(residuals, operators=parser.stl)
+                        anomaly_times.append(index // batch_size)
+                    else:
+                        residuals = np.vstack((residuals, batch_residuals))
+                        X_train = np.vstack((X_train, X))
+                        Y_train = np.hstack((Y_train, Y))
+                    current_time += timedelta(diff_minutes * batch_size)
+                    index += batch_size
+                print(f"{num_anomalies}/{len(Y_test)} anomalies detected")
+                total_num_anomalies += num_anomalies
+                num_total += len(Y_test)
+                type_anomaly_times.append(anomaly_times)
+            print("=" * 65)
+            print(f"For type {sensor_type}, anomaly coefficient {anomaly_coef}:")
+            print(f"{total_num_anomalies}/{num_total} anomalies detected")
+            print(f"Anomaly detection rate: {total_num_anomalies/num_total}")
+            print("=" * 65)
+        
 
 if __name__ == "__main__":
     from parser import Parser

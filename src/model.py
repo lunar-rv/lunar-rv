@@ -213,9 +213,6 @@ def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str)
         if anom_type == "large":
             anomaly_size *= 5
         data[:, anomaly_indices] += anomaly_size
-    print("APPLY ANOMALY: LARGE = ", data.std(axis=0) * 5)
-    print("SMALL = ", data.std(axis=0))
-    exit()
     return data
 
 def main():
