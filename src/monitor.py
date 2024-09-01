@@ -18,12 +18,12 @@ def monitor_loop(parser) -> None:
     warmup2 = False
     safe_trace_file = config["SAFE_TRACE_FILE"]
     typed_anom_classifiers = {t: None for t in parser.type}
-    typed_bin_classifiers = {t: None for t in parser.type}
+    typed_bin_classifiers = {t: np.full((parser.type_indices[i]), None, dtype=object) for i, t in enumerate(parser.type)}
     typed_formulae = {t: [] for t in parser.type}
     typed_anomaly_statuses = {t: [] for t in parser.type}
     anom_classifier = None
     formulae = []
-    bin_classifier = None
+    bin_classifiers = []
     anomaly_statuses = []
     warmup_1_time = int(config["WARMUP_1_PROPORTION"] * parser.safe)
     warmup_2_time = parser.safe - warmup_1_time
@@ -90,12 +90,12 @@ def monitor_loop(parser) -> None:
         for i, sensor_type in enumerate(parser.type):
             prev_type = list(parser.type)[i-1]
             typed_anom_classifiers[prev_type] = copy.deepcopy(anom_classifier)
-            typed_bin_classifiers[prev_type] = copy.deepcopy(bin_classifier)
+            typed_bin_classifiers[prev_type] = copy.deepcopy(bin_classifiers)
             typed_formulae[prev_type] = copy.deepcopy(formulae)
             typed_anomaly_statuses[prev_type] = anomaly_statuses.copy()
             anomaly_statuses = typed_anomaly_statuses[sensor_type]
             anom_classifier = typed_anom_classifiers[sensor_type]
-            bin_classifier = typed_bin_classifiers[sensor_type]
+            bin_classifiers = typed_bin_classifiers[sensor_type]
             formulae = typed_formulae[sensor_type]
             indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
             train_used = train[:, indices_used]
@@ -125,11 +125,11 @@ def monitor_loop(parser) -> None:
                         if not anomaly_statuses[sensor_index]:
                             start_anomaly(new_batch, sensor_index + 1)
                         anomaly_statuses[sensor_index] = True
-                        formulae, bin_classifier = update_spec(
+                        formulae, bin_classifiers = update_spec(
                             formulae=formulae,
                             operators=parser.stl,
                             sensor_index=sensor_index,
-                            bin_classifier=bin_classifier,
+                            bin_classifier=bin_classifiers,
                             new_trace=residuals,
                             new_label="Anomaly",
                             sensor_type=sensor_type,
@@ -142,10 +142,10 @@ def monitor_loop(parser) -> None:
                 with open(residuals_file, "a") as f:
                     f.write("\n" + new_trace)
                 if not warmup2:
-                    formulae, bin_classifier = update_spec(
+                    formulae, bin_classifiers = update_spec(
                         formulae=formulae,
                         sensor_index=sensor_index,
-                        bin_classifier=bin_classifier,
+                        bin_classifier=bin_classifiers,
                         operators=parser.stl,
                         new_trace=residuals,
                         new_label="Safe",
