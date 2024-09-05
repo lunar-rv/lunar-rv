@@ -202,8 +202,8 @@ def testing_2(parser, add_anomalies=False):
 anom_types = ["ramp", "gauss", "spike"]#, "ramp"]
 NUM_ANOM_TYPES = len(anom_types)
 # anomaly_sizes = (20, 2, 30, 40)
-anomaly_sizes = (1, 3, 5, 2)
-        
+anomaly_sizes = (8, 12, 4)
+np.random.seed(42)
 
 def apply_anomaly(dataset, anom_type, uniform_size=1, gauss_size=1, spike_size=3, ramp_size=2):
     if anom_type == "gauss":
@@ -340,11 +340,14 @@ def testing_4(parser):
                 Y_train_tree = Y_test[:train_tree_size]
                 X_test_tree = X_test[train_tree_size:]
                 Y_test_tree = Y_test[train_tree_size:]
+                indices = np.arange(train_tree_size)
+                np.random.shuffle(indices)
+                # for i in range(NUM_ANOM_TYPES):
+                #     selection_indices = indices[i * set_size: (i + 1) * set_size]
+                #     Y_train_tree[selection_indices] = apply_anomaly(Y_train_tree[selection_indices], anom_types[i], *anomaly_sizes)
                 for i in range(NUM_ANOM_TYPES):
                     selection = slice(i * set_size, (i+1) * set_size)
-                    Y_train_tree[selection] = apply_anomaly(Y_train_tree[selection], anom_types[i], *anomaly_sizes)
-                # np.set_printoptions(threshold=train_tree_size)
-                # exit()
+                    Y_train_tree[selection] = apply_anomaly(Y_train_tree[selection], anom_types[i], *anomaly_sizes) 
                 residuals = []
                 for X, Y in zip(X_train_tree, Y_train_tree):
                     predictions = model.predict(X)
@@ -433,30 +436,43 @@ def testing_5(parser):
                 Y_train_tree = Y_test[:train_tree_size]
                 X_test_tree = X_test[train_tree_size:]
                 Y_test_tree = Y_test[train_tree_size:]
-                # Y_train_tree = apply_anomaly(Y_train_tree, "uniform", uniform_size=100)
                 for i in range(NUM_ANOM_TYPES):
                     selection = slice(i * set_size, (i+1) * set_size)
-                    Y_train_tree[selection] = apply_anomaly(Y_train_tree[selection], anom_types[i], *anomaly_sizes)
+                    Y_train_tree[selection] = apply_anomaly(Y_train_tree[selection], anom_types[i], *anomaly_sizes) 
                 residuals = []
                 for X, Y in zip(X_train_tree, Y_train_tree):
                     predictions = model.predict(X)
                     residuals.append(np.abs(predictions - Y))
+                    X_train = np.vstack((X_train, X))
+                    Y_train = np.hstack((Y_train, Y))
+                    while X_train.shape[0] > 30:
+                        X_train = X_train[1:]
+                        Y_train = Y_train[1:]
+                    model.fit(X_train, Y_train)
                 pos_residuals = np.array(residuals)
                 neg_residuals = initial_residuals
                 tree = build(neg_train=neg_residuals, pos_train=pos_residuals, operators=parser.stl)
                 # tree.print_tree()
                 classes = ["Safe", "Anomaly"]
                 # anom_types = ["uniform"]
+                index = 0
                 for i, c in enumerate(classes):
                     for X, Y in zip(X_test_tree, Y_test_tree):
                         if c == "Anomaly":
-                            anom_type = np.random.choice(anom_types)
+                            anom_type = anom_types[index % NUM_ANOM_TYPES]
                             Y = apply_anomaly(Y.reshape(1, -1), anom_type, *anomaly_sizes).reshape(-1)
+                        index += 1
                         predictions = model.predict(X)
                         residuals = np.abs(predictions - Y)
                         predicted_label = tree.classify(residuals)
                         predicted_label_index = classes.index(predicted_label)
                         confusion_matrix[i, predicted_label_index] += 1
+                        X_train = np.vstack((X_train, X))
+                        Y_train = np.hstack((Y_train, Y))
+                        while X_train.shape[0] > 30:
+                            X_train = X_train[1:]
+                            Y_train = Y_train[1:]
+                        model.fit(X_train, Y_train)
         print("Train size:", train_tree_size)
         print(confusion_matrix.tolist())
         print("Accuracy:", confusion_matrix.trace() / confusion_matrix.sum())
@@ -506,21 +522,36 @@ def testing_6(parser):
             for X, Y in zip(X_train_tree, Y_train_tree):
                 predictions = model.predict(X)
                 residuals.append(np.abs(predictions - Y))
+                X_train = np.vstack((X_train, X))
+                Y_train = np.hstack((Y_train, Y))
+                while X_train.shape[0] > 30:
+                    X_train = X_train[1:]
+                    Y_train = Y_train[1:]
+                model.fit(X_train, Y_train)
             neg_residuals = initial_residuals
             formula = positive_synth(neg_residuals, operators=parser.stl)
             classes = ["Safe", "Anomaly"]
             # anom_types = ["uniform"]
+            index = 0
             for i, c in enumerate(classes):
                 for X, Y in zip(X_test_tree, Y_test_tree):
                     if c == "Anomaly":
-                        anom_type = np.random.choice(anom_types)
+                        anom_type = anom_types[index % NUM_ANOM_TYPES]
                         Y = apply_anomaly(Y.reshape(1, -1), anom_type, *anomaly_sizes).reshape(-1)
+                    index += 1
                     predictions = model.predict(X)
                     residuals = np.abs(predictions - Y)
                     rob = formula.evaluate(residuals.reshape(1, -1), return_arr=True)
                     predicted_label = "Anomaly" if rob.min() < 0 else "Safe"
                     predicted_label_index = classes.index(predicted_label)
                     confusion_matrix[i, predicted_label_index] += 1
+                    X_train = np.vstack((X_train, X))
+                    Y_train = np.hstack((Y_train, Y))
+                    if True:
+                        while X_train.shape[0] > 30:
+                            X_train = X_train[1:]
+                            Y_train = Y_train[1:]
+                        model.fit(X_train, Y_train)
     print(confusion_matrix.tolist())
     print("Accuracy:", confusion_matrix.trace() / confusion_matrix.sum())
 

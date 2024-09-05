@@ -52,7 +52,8 @@ def stl_entropy(left_lab, left_rob, right_lab, right_rob) -> float:
     H_left = calculate_entropy(left_lab, left_rob)
     H_right = calculate_entropy(right_lab, right_rob)
 
-    H = l * H_left + r * H_right
+    # H = l * H_left + r * H_right
+    H = l * H_left * r * H_right
     return H
 
 def choose_majority(labels) -> str:
@@ -60,20 +61,22 @@ def choose_majority(labels) -> str:
     choice = values[np.argmax(counts)]
     return choice
 
-def find_best_binary_threshold(values, labels, n=20) -> float:
+def find_best_binary_threshold(values, labels, n=5) -> float:
     safe_values = values[labels == "Safe"]
     anomaly_values = values[labels == "Anomaly"]
-    safe_midpoint = np.median(safe_values)
-    anomaly_midpoint = np.median(anomaly_values)
-    possible_thresholds = np.linspace(anomaly_midpoint, safe_midpoint, n)
-    best_threshold = None
-    best_accuracy = 0
-    for threshold in possible_thresholds:
-        classified_labels = np.where(values > threshold, "Anomaly", "Safe")
-        accuracy = np.mean(classified_labels == labels)
-        if accuracy > best_accuracy:
-            best_accuracy = accuracy
-            best_threshold = threshold
+
+    best_threshold = (safe_values.min() + anomaly_values.max()) / 2
+    # safe_midpoint = np.median(safe_values)
+    # anomaly_midpoint = np.median(anomaly_values)
+    # possible_thresholds = np.linspace(safe_midpoint, anomaly_midpoint, n)
+    # best_threshold = None
+    # best_accuracy = 0
+    # for threshold in possible_thresholds:
+    #     classified_labels = np.where(values < threshold, "Anomaly", "Safe")
+    #     accuracy = np.mean(classified_labels == labels)
+    #     if accuracy > best_accuracy:
+    #         best_accuracy = accuracy
+    #         best_threshold = threshold
     return best_threshold
 
 
@@ -90,7 +93,7 @@ def split_with_formula(traces: np.ndarray, formula, return_traces=False, binary=
         return left_trace, right_trace
     labels = traces[:, -1]
     if binary:
-        threshold = find_best_binary_threshold(evaluations, labels, n=20)
+        threshold = find_best_binary_threshold(evaluations, labels, n=10)
         epsilon = 1e-8
         formula.boundary = epsilon - threshold # For floating point arithmetic errors where value is close to 0
         evaluations = formula.evaluate(traces, labels=True).min(axis=1)
@@ -105,15 +108,20 @@ def choose_formula(traces: np.ndarray, batch_size, operators: list, binary=False
     best_entropy = np.inf
     best_formula = None
     values = traces[:, :-1].astype(float)
-    boundaries = np.linspace(values.min(), values.max(), num=5)
+    boundaries = np.linspace(values.min(), values.max(), num=6)
+    np.random.shuffle(boundaries)
     for boundary, end, operator in FormulaFactory.list_options(binary=binary, boundaries=boundaries, batch_size=batch_size, operators=operators):
         formula = FormulaFactory.build_formula(boundary=boundary, end=end, operator=operator)
         left_lab, left_rob, right_lab, right_rob = split_with_formula(traces, formula, binary=binary)
         H_1 = stl_entropy(left_lab, left_rob, right_lab, right_rob)
         H_2 = entropy(left_lab, right_lab)
+
+        # print("Boundary:", boundary, "Operator:", operator, "Entropy:", H_2, "STL Entropy:", H_1)
         beta = tree_config["BETA"]
-        epsilon = 1e-6
-        F_beta = (1 + beta ** 2) * H_1 * H_2 / ((beta ** 2 * H_1 + H_2) + epsilon)
+        # beta = 5
+        epsilon = 1e-7
+        # F_beta = (1 + beta ** 2) * H_1 * H_2 / ((beta ** 2 * H_1 + H_2) + epsilon)
+        F_beta = H_1 + H_2 / beta
         if F_beta < best_entropy:
             best_formula = formula
             best_entropy = F_beta
@@ -193,12 +201,15 @@ class TreeNode:
         return left + right
 
     def classify(self, trace) -> str:
+        return self.get_leaf(trace).value
+    
+    def get_leaf(self, trace):
         if self.value:
-            return self.value
+            return self
         evaluation = self.formula.evaluate(trace.reshape(1, -1), labels=False)[0]
         rob = evaluation.min()
         next_node = self.left if rob > 0 else self.right
-        return next_node.classify(trace)
+        return next_node.get_leaf(trace)
 
     def print_tree(self, stem=""):
         print(self)
@@ -223,8 +234,6 @@ class TreeNode:
             traces, formula, return_traces=True, binary=binary
         )
         if len(left_traces) == 0 or len(right_traces) == 0:
-            if binary and depth == 0:
-                print("Best formula was", formula, "which didn't work")
             return TreeNode(None, None, traces, None, value=choose_majority(labels), max_depth=max_depth)
         left_node = TreeNode.build_tree(left_traces, batch_size, depth=depth+1, max_depth=max_depth, binary=binary, operators=operators)
         right_node = TreeNode.build_tree(right_traces, batch_size, depth=depth+1, max_depth=max_depth, binary=binary, operators=operators)

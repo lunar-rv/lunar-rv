@@ -16,9 +16,12 @@ def clear_files(reading_types) -> None:
     output_directories = [
         config["WEIGHTS_DIR"], 
         config["RESIDUALS_DIR"], 
-        config["ANOMALIES_DIR"]
+        config["ANOMALIES_DIR"],
+        config["SPECS_DIR"],
     ]
     for dir in output_directories:
+        if not os.path.exists(dir):
+            os.mkdir(subdir)
         for t in reading_types:
             subdir = os.path.join(dir, t)
             if os.path.exists(subdir):

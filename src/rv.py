@@ -10,7 +10,7 @@ print("Parsing specification...")
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument("spec_file", help="The file containing the specification")
-argparser.add_argument("test", help="The test to run")
+argparser.add_argument("--test", help="The test to run")
 args = argparser.parse_args()
 
 def main():

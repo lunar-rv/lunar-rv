@@ -14,8 +14,8 @@ def build(neg_train, pos_train, operators):
         )
     )
     batch_size = neg_train.shape[1]
-    head = TreeNode.build_tree(train_data, batch_size=batch_size, max_depth=2, binary=True, operators=operators)
-    head.print_tree()
+    head = TreeNode.build_tree(train_data, batch_size=batch_size, max_depth=3, binary=True, operators=operators)
+    # head.print_tree()
     return head
 
 
