@@ -1,2 +1,0 @@
-Anomaly at sensor 24 detected at 21/01/2023
-Anomaly at sensor 24 resolved at 22/01/2023
