@@ -108,16 +108,16 @@ def monitor_loop(parser) -> None:
                 elif len(anomaly_statuses) <= sensor_index:
                     anomaly_statuses.append(False)
                     formulae.append(None)
-                start = max(len(train_used) - 30 * parser.batch, 0)
+                start = max(len(train_used) - config["WINDOW_SIZE"] * parser.batch, 0)
                 residuals = get_residuals(
                     train=train_used[start:],
                     test=test_used,
                     sensor_index=sensor_index,
                     sensor_type=sensor_type,
                 )
-                new_trace = ",".join(residuals.astype(str))
+                new_trace = ",".join(np.abs(residuals).astype(str))
                 formula = formulae[sensor_index]
-                if not new_batch_ok(residuals=residuals, formula=formula, new_batch=new_batch, sensor_index=sensor_index, sensor_type=sensor_type):
+                if not new_batch_ok(residuals=residuals, start_index=parser.type_indices[i], formula=formula, new_batch=new_batch, sensor_index=sensor_index, sensor_type=sensor_type):
                     confirmation, anom_classifier = log_anomaly(
                         new_trace, sensor_index, operators=parser.stl, tree=anom_classifier, warmup2=warmup2, sensor_type=sensor_type
                     )
@@ -130,7 +130,7 @@ def monitor_loop(parser) -> None:
                             operators=parser.stl,
                             sensor_index=sensor_index,
                             bin_classifier=bin_classifiers,
-                            new_trace=residuals,
+                            new_trace=np.abs(residuals),
                             new_label="Anomaly",
                             sensor_type=sensor_type,
                         )
@@ -147,7 +147,7 @@ def monitor_loop(parser) -> None:
                         sensor_index=sensor_index,
                         bin_classifier=bin_classifiers,
                         operators=parser.stl,
-                        new_trace=residuals,
+                        new_trace=np.abs(residuals),
                         new_label="Safe",
                         sensor_type=sensor_type,
                     )

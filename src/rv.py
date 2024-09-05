@@ -16,6 +16,7 @@ argparser.add_argument("spec_file", help="The file containing the specification"
 argparser.add_argument("--test", default=-1, help="The test to run")
 argparser.add_argument("--index", nargs='?', default=None, help="Sensor index to use (optional)")
 argparser.add_argument("--model", nargs='?', default=None, help="Model to use (optional)")
+argparser.add_argument("--offline", "-o", action="store_true", help="Run the monitor online")
 args = argparser.parse_args()
 
 def main():
@@ -23,7 +24,7 @@ def main():
     p = Parser()
     p.parse(args.spec_file)
 
-    if config["ONLINE"]:
+    if config["ONLINE"] and not args.offline:
         run_monitor(p)
     else:
         if args.test == -1:

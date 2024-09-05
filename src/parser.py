@@ -3,8 +3,8 @@ import re
 class Parser:
     def __init__(self):
         self.inputs = set(["stl", "type", "batch", "safe"])
-        self.stl = set()
-        self.type = set()
+        self.stl = []
+        self.type = []
         self.type_indices = [0]
         self.patterns = {
             "input": r'^input\s*=\s*"?(?P<var>.+?)"?\s*$',
@@ -40,7 +40,7 @@ class Parser:
         else:
             variable = match.group("var")
             if line.startswith("add"):
-                self.__dict__[prefix].add(variable)
+                self.__dict__[prefix].append(variable)
                 if prefix == "type":
                     prev = self.type_indices[-1]
                     num_sensors = match.group("sensors")
@@ -64,6 +64,8 @@ class Parser:
             raise ValueError(f"Missing inputs: {missing}")
         for line in lines[1:]:
             self.parse_line(line)
+        if len(self.stl) != len(set(self.stl)):
+            raise ValueError(f"Duplicate STL operators: {self.stl}")
 
 def main():
     p = Parser()

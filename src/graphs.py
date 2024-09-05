@@ -25,13 +25,14 @@ def plot_traces(neg_infile, pos_infile, outfile):
     plt.close()
 
 
-def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, sensor_type: str, backlog_size: int = 0, formula=None, bounds: list = [], time_period=-1):
+def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime, keyword: str, sensor_type: str, backlog_size: int = 0, formula=None, bounds: list = [], time_period=-1, preds=None):
     trace_start_time = batch_start_time - timedelta(minutes=backlog_size * time_period)
     trace_end_time = trace_start_time + timedelta(minutes=(len(trace) - 1) * time_period)
     int_ticks = np.linspace(0, len(trace)-1, min(len(trace), 9))
     dt_ticks = [trace_start_time + timedelta(minutes=int(tick) * time_period) for tick in int_ticks]
     plt.plot(trace, label=f"{keyword}", color='blue')
-    
+    if preds is not None:
+        plt.plot(preds, label="Predictions", color='green')
     for start, end in bounds:
         plt.axvspan(start, end, color='orange', alpha=0.3, label="Anomaly" if start == bounds[0][0] else "")
     

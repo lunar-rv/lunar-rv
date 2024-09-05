@@ -18,4 +18,4 @@ numpy/*
 *.npy
 src/alternative/*
 outputs/log.txt
-inputs/*.csv
+# inputs/*.csv

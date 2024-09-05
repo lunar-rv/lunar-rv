@@ -25,7 +25,7 @@ def evaluate_formula(traces, batch_size, operators, F_end=None, G_avg_end=None):
 
 def positive_synth(traces, operators, prev_formula=None):
     best_formula = None
-    batch_size = traces.size // traces.shape[0]
+    batch_size = traces.shape[1]
     bounded_operators = [op for op in operators if op != "G"]
     best_formula_kwargs = {
         "operators": operators,
@@ -36,7 +36,7 @@ def positive_synth(traces, operators, prev_formula=None):
     if len(bounded_operators) == 1:
         best_end = searching.grid_search_1d(traces, batch_size, evaluation_fn=evaluate_formula, operators=operators)
         best_formula_kwargs.update(best_end)
-    elif len(bounded_operators) > 1:  
+    elif len(bounded_operators) > 1:
         best_x, best_y = searching.simulated_annealing_search(traces=traces, batch_size=batch_size, evaluation_fn=evaluate_formula, operators=operators)
         best_formula_kwargs.update({
             "F_end": best_x,
@@ -51,8 +51,9 @@ def positive_synth(traces, operators, prev_formula=None):
             lr = lr[1-best_formula.max_length:]
         elif prev_formula.max_length < best_formula.max_length:
             padding_length = best_formula.max_length - prev_formula.max_length
-            lrv = np.pad(lrv, ((0, 0), (padding_length, 0)), mode='constant', constant_values=np.nan)
-            lr = np.pad(lr, ((0, 0), (padding_length, 0)), mode='constant', constant_values=np.nan)
+            if lr is not None and lrv is not None:
+                lrv = np.pad(lrv, ((0, 0), (padding_length, 0)), mode='constant', constant_values=np.nan)
+                lr = np.pad(lr, ((0, 0), (padding_length, 0)), mode='constant', constant_values=0)
         best_formula.last_raw_values = lrv
         best_formula.last_residuals = lr
     return best_formula

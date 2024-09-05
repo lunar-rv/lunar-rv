@@ -403,14 +403,14 @@ def testing_5(parser):
     # warmup_1_time = int(config["WARMUP_1_PROPORTION"] * parser.safe)
     # warmup_2_time = parser.safe - warmup_1_time
     # sizes = np.arange(6, 54, 12)
-    sizes = [60]
+    sizes = [90]
     for train_tree_size in sizes:
         confusion_matrix = np.zeros((2,2))
         for i, sensor_type in enumerate(parser.type):
             indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
             data_used = data[:, indices_used]
-            w_1 = 10 * batch_size#warmup_1_time * batch_size
-            w_2 = 30 * batch_size #warmup_2_time * batch_size
+            w_1 = 2 * batch_size#warmup_1_time * batch_size
+            w_2 = 18 * batch_size #warmup_2_time * batch_size
             train_lr = data_used[:w_1, :]
             train_stl = data_used[w_1:w_1+w_2, :]
             test = data_used[w_1 + w_2:, :]

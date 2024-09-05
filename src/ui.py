@@ -211,7 +211,7 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
     date = first_reading_values[-2]
     time = first_reading_values[-1].strip()
     datetime_str = f"{date} {time}"
-    start_time = datetime.strptime(datetime_str, "%m/%d/%Y %H:%M:%S")
+    start_time = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
     bounds = get_anomaly_bounds(anomaly_indices)
     for interval in bounds:
         interval_start = (start_time + timedelta(minutes = (int(interval[0])) * time_period)).strftime("%d/%m/%Y %H:%M:%S")

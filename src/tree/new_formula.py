@@ -29,6 +29,7 @@ class F(Predicate):
         super().__init__(boundary, end)
     def evaluate(self, traces, labels=False):
         traces = traces[:, :-1].astype(float) if labels else traces
+        traces = np.abs(traces)
         trace_end = traces.shape[1]
         all_values = [None]
         for start in range(trace_end - self.end + 1):
@@ -54,6 +55,7 @@ class G_avg(Predicate):
         return f"mean[0, {self.end}) error <= {self.boundary}"
     def evaluate(self, traces, labels=False):
         traces = traces[:, :-1].astype(float) if labels else traces
+        traces = np.abs(traces)
         trace_end = traces.shape[1]
         all_values = [None]
         for start in range(trace_end - self.end + 1):
@@ -78,6 +80,7 @@ class G(Predicate):
         return f"The error must always be below {self.boundary}"
     def evaluate(self, traces, labels=False):
         traces = traces[:, :-1].astype(float) if labels else traces
+        traces = np.abs(traces)
         values = self.boundary - traces.max(axis=1).reshape(-1, 1)
         return values
     
@@ -145,10 +148,10 @@ class Formula:
             self.last_residuals = traces_arr
             self.last_raw_values = raw_values
         if return_arr:
-            evaluation = self.evaluate(traces_arr, labels, return_arr=True)[0]
+            evaluation = self.evaluate(np.abs(traces_arr), labels, return_arr=True)[0]
             return evaluation
         else:
-            return self.evaluate(traces_arr, labels, return_arr=False)
+            return self.evaluate(np.abs(traces_arr), labels, return_arr=False)
         
 class FormulaFactory:
     @staticmethod

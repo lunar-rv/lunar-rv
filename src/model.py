@@ -32,8 +32,9 @@ def get_residuals(
     model.fit(X_train, Y_train)
     write_weights(model, sensor_type=sensor_type)
     predictions = model.predict(X_test)
-    abs_residuals = np.abs(predictions - Y_test)
-    return abs_residuals
+    residuals = predictions - Y_test
+    # return np.abs(residuals)
+    return residuals
 
 def get_safety_dist(sensor_index, sensor_type=None) -> float:
     safe_residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
@@ -42,12 +43,22 @@ def get_safety_dist(sensor_index, sensor_type=None) -> float:
     mu = np.mean(safe_traces)
     return mu, sigma
 
-def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None, print_info=True) -> bool:
+def quantitative_rob(evaluations: dict, residuals: np.ndarray) -> bool:
+    epsilon = 1e-6
+    for key, value in evaluations.items():
+        if value.min() < -epsilon:
+            if key.__class__.__name__ == "G":
+                if residuals.max() <= key.boundary + epsilon:
+                    continue
+            return False
+    return True
+
+def new_batch_ok(residuals, start_index: int, formula=None, new_batch: list = None, sensor_index: int = None, sensor_type: str = None, print_info=True) -> bool:
     time_period = get_time_period(new_batch)
     if formula is None:
         return True
     raw_data = preprocess_trace(new_batch=new_batch)
-    sensor_values = raw_data[:, sensor_index]
+    sensor_values = raw_data[:, start_index + sensor_index]
     backlog_size: int = formula.last_residuals.size if formula.last_residuals is not None else 0
     if backlog_size != 0:
         old_residuals = np.hstack((formula.last_residuals.flatten(), residuals))
@@ -56,10 +67,11 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
         old_residuals = residuals
         old_sensor_values = sensor_values
     evaluations = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values)
-    rob = np.hstack([rho.flatten() for rho in evaluations.values()])
-    if rob.min() >= 0:
-        return True
+    # if rob.min() > -epsilon:
+    #     return True
         # print("Evaluation", evaluation)
+    if quantitative_rob(evaluations, residuals=residuals):
+        return True    
     if print_info:
         print("Failed to satisfy formula: ", formula)
         mean_res = np.round(residuals.mean(), 4)
@@ -81,6 +93,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
             end = phi.end if phi.end is not None else formula.max_length
             bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, phi, new_batch, prev_backlog_size=backlog_size, end=end)
             bounds = np.array(bounds) + backlog_size
+            preds = old_sensor_values + old_residuals
             plot_array(
                 trace=old_sensor_values,
                 sensor_index=sensor_index,
@@ -90,9 +103,10 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                 sensor_type=sensor_type,
                 batch_start_time=batch_start_time,
                 backlog_size=backlog_size,
+                preds=preds
             )
             plot_array(
-                trace=old_residuals, 
+                trace=np.abs(old_residuals), 
                 sensor_index=sensor_index, 
                 keyword="Magnitude of Residuals", 
                 formula=phi,
@@ -101,6 +115,7 @@ def new_batch_ok(residuals, formula=None, new_batch: list = None, sensor_index: 
                 batch_start_time=batch_start_time,
                 backlog_size=backlog_size,
                 sensor_type=sensor_type,
+                preds=None
             )
     # print_anomaly_info(model, new_batch, formula)
     return False
@@ -159,9 +174,9 @@ def update_spec(
         s.seek(0)
         s.write(repr(spec))
         s.truncate()
-    print("=" * 50)
-    print(f"Formula is now: {spec}")
-    print("=" * 50)
+    # print("=" * 50)
+    # print(f"Formula is now: {spec}")
+    # print("=" * 50)
     return formulae, bin_classifier
 
 
