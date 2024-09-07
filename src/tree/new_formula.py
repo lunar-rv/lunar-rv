@@ -75,7 +75,7 @@ class G(Predicate):
     def __init__(self, boundary, end=None):
         super().__init__(boundary, None)
     def __repr__(self):
-        return f"always error <= {self.boundary}"
+        return f"error <= {self.boundary}"
     def human_readable(self, time_period):
         return f"The error must always be below {self.boundary}"
     def evaluate(self, traces, labels=False):
@@ -92,9 +92,8 @@ class Formula:
         self.last_residuals = None
         self.last_raw_values = None
     def __repr__(self):
-        # return f"({self.g}) and ({self.f}) and ({self.g_avg})"
-        formulae = [f"({repr(phi)})" for phi in self.__list__() if phi]
-        return ' and '.join(formulae)
+        formulae = [f"{repr(phi)}" for phi in self.__list__() if phi]
+        return "always[0, batch_size) ((" + ') and ('.join(formulae) + ")"
     def __getitem__(self, index):
         return self.__list__()[index]
     def __list__(self):
