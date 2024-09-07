@@ -239,7 +239,7 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
             if i+1 == N or indices[i+1] - 1 != this_value:
                 bounds.append((start_bound, this_value + end - prev_backlog_size - 1))
         return bounds
-    print("Formula was:", formula)
+    print("Violated subformula was:", formula)
     print(f"This means: {formula.human_readable(time_period)}.")
     print("This was not satisfied between the following times:")
     first_reading_values = new_batch[0].split(",")
