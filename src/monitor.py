@@ -26,7 +26,7 @@ def monitor_loop(parser) -> None:
     formulae = []
     bin_classifiers = []
     anomaly_statuses = []
-    warmup_1_time = int(config["WARMUP_1_PROPORTION"] * parser.safe)
+    warmup_1_time = int(np.ceil(config["WARMUP_1_PROPORTION"] * parser.safe))
     warmup_2_time = parser.safe - warmup_1_time
     warmup_times = (warmup_1_time, warmup_2_time)
     progress_bar(index=0, warmup_stage=1, warmup_times=warmup_times)
@@ -142,8 +142,8 @@ def monitor_loop(parser) -> None:
 
 def run_monitor(parser) -> None:
     clear_files(parser.type)
-    warmup_times = (str(int(config["WARMUP_1_PROPORTION"] * parser.safe)), 
-                    str(parser.safe - int(config["WARMUP_1_PROPORTION"] * parser.safe))
+    warmup_times = (str(int(np.ceil(config["WARMUP_1_PROPORTION"] * parser.safe))), 
+                    str(parser.safe - int(np.ceil(config["WARMUP_1_PROPORTION"] * parser.safe)))
     )
     print_intro(types=list(parser.type), warmup_times=warmup_times)
     monitor_loop(parser)
