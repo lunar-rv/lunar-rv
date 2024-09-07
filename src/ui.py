@@ -241,7 +241,7 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
         return bounds
     print("Violated subformula was:", formula)
     print(f"This means: {formula.human_readable(time_period)}.")
-    print("This was not satisfied between the following times:")
+    print("The anomaly was detected between the following times:")
     first_reading_values = new_batch[0].split(",")
     date = first_reading_values[-2]
     time = first_reading_values[-1].strip()
