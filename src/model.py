@@ -203,7 +203,7 @@ def log_anomaly(
     if not warmup2 and not tree:
         print("Building tree...", flush=True)
         tree = TreeNode.build_tree(
-            np.append(trace_np, anomaly_type).reshape(1, -1), batch_size=trace_np.size, binary=False, max_depth=5, operators=operators
+            np.append(trace_np, anomaly_type).reshape(1, -1), batch_size=trace_np.size, binary=False, max_depth=config["TREE_CONFIG"]["MAX_DEPTH"], operators=operators
         )
         print("Tree built!")
     else:

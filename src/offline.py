@@ -487,15 +487,19 @@ def testing_6(parser):
     # warmup_2_time = parser.safe - warmup_1_time
     confusion_matrix = np.zeros((2,2))
     for i, sensor_type in enumerate(parser.type):
+        if sensor_type != "temperature":
+            continue
         indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
         data_used = data[:, indices_used]
-        w_1 = 10 * batch_size#warmup_1_time * batch_size
-        w_2 = 30 * batch_size #warmup_2_time * batch_size
+        w_1 = 2 * batch_size#warmup_1_time * batch_size
+        w_2 = 18 * batch_size #warmup_2_time * batch_size
         train_lr = data_used[:w_1, :]
         train_stl = data_used[w_1:w_1+w_2, :]
         test = data_used[w_1 + w_2:, :]
         num_sensors_used = len(indices_used)
-        for sensor_index in range(num_sensors_used):
+        anom_results = np.zeros((10))
+        for sensor_index in range(16,27):
+        #for sensor_index in range(num_sensors_used):
             print(f"SENSOR {sensor_index}")
             X_train_lr, Y_train_lr = X_Y_split(train_lr, sensor_index)
             X_train_stl, Y_train_stl = X_Y_split(train_stl, sensor_index)
@@ -511,49 +515,55 @@ def testing_6(parser):
             X_test = X_test.reshape(-1, batch_size, num_sensors_used - 1)
             Y_test = Y_test.reshape(-1, batch_size)
             # train_tree_size = DEFINED ABOVE
-            train_tree_size = 60
-            X_train_tree = X_test[:train_tree_size]
-            Y_train_tree = Y_test[:train_tree_size]
-            X_test_tree = X_test[train_tree_size:]
-            Y_test_tree = Y_test[train_tree_size:]
-            set_size = train_tree_size // NUM_ANOM_TYPES
-            # Y_train_tree = apply_anomaly(Y_train_tree, "uniform", uniform_size=100)
-            residuals = []
-            for X, Y in zip(X_train_tree, Y_train_tree):
-                predictions = model.predict(X)
-                residuals.append(np.abs(predictions - Y))
-                X_train = np.vstack((X_train, X))
-                Y_train = np.hstack((Y_train, Y))
-                while X_train.shape[0] > 30:
-                    X_train = X_train[1:]
-                    Y_train = Y_train[1:]
-                model.fit(X_train, Y_train)
+            # train_tree_size = 60
+            # X_train_tree = X_test[:train_tree_size]
+            # Y_train_tree = Y_test[:train_tree_size]
+            # X_test_tree = X_test[:1]
+            # Y_test_tree = Y_test[:1]
+            # set_size = train_tree_size // NUM_ANOM_TYPES
+            # # Y_train_tree = apply_anomaly(Y_train_tree, "uniform", uniform_size=100)
+            # residuals = []
+            # for X, Y in zip(X_train_tree, Y_train_tree):
+            #     predictions = model.predict(X)
+            #     residuals.append(np.abs(predictions - Y))
+            #     X_train = np.vstack((X_train, X))
+            #     Y_train = np.hstack((Y_train, Y))
+            #     while X_train.shape[0] > 30:
+            #         X_train = X_train[1:]
+            #         Y_train = Y_train[1:]
+            #     model.fit(X_train, Y_train)
             neg_residuals = initial_residuals
             formula = positive_synth(neg_residuals, operators=parser.stl)
-            classes = ["Safe", "Anomaly"]
+            # print(formula)
+            classes = ["Safe"]#, "Anomaly"]
             # anom_types = ["uniform"]
-            index = 0
-            for i, c in enumerate(classes):
-                for X, Y in zip(X_test_tree, Y_test_tree):
-                    if c == "Anomaly":
-                        anom_type = anom_types[index % NUM_ANOM_TYPES]
-                        Y = apply_anomaly(Y.reshape(1, -1), anom_type, *anomaly_sizes).reshape(-1)
-                    index += 1
-                    predictions = model.predict(X)
-                    residuals = np.abs(predictions - Y)
-                    rob = formula.evaluate(residuals.reshape(1, -1), return_arr=True)
-                    predicted_label = "Anomaly" if rob.min() < 0 else "Safe"
-                    predicted_label_index = classes.index(predicted_label)
-                    confusion_matrix[i, predicted_label_index] += 1
-                    X_train = np.vstack((X_train, X))
-                    Y_train = np.hstack((Y_train, Y))
-                    if True:
-                        while X_train.shape[0] > 30:
-                            X_train = X_train[1:]
-                            Y_train = Y_train[1:]
-                        model.fit(X_train, Y_train)
-    print(confusion_matrix.tolist())
-    print("Accuracy:", confusion_matrix.trace() / confusion_matrix.sum())
+            day_index = 0
+            for X, Y in zip(X_test, Y_test):
+                day_index += 1
+                predictions = model.predict(X)
+                residuals = np.abs(predictions - Y)
+                rob = formula.evaluate(residuals.reshape(1, -1), return_arr=True)
+                predicted_label = "Anomaly" if rob.min() < 0 else "Safe"
+                anoms = np.array([9, 33, 82, 83, 84, 85, 86, 87, 88, 129]) - (w_1 + w_2) / batch_size
+                # print(anoms)
+                if day_index in anoms:
+                    if predicted_label == "Anomaly":
+                        anom_results[anoms.tolist().index(day_index)] += 1
+                    # print("index:", day_index + (w_1 + w_2) / batch_size)
+                    print(predicted_label)
+                # exit()
+                # predicted_label_index = classes.index(predicted_label)
+                # confusion_matrix[i, predicted_label_index] += 1
+                X_train = np.vstack((X_train, X))
+                Y_train = np.hstack((Y_train, Y))
+                if True:
+                    while X_train.shape[0] > 30:
+                        X_train = X_train[1:]
+                        Y_train = Y_train[1:]
+                    model.fit(X_train, Y_train)
+    # print(confusion_matrix.tolist())
+    # print("Accuracy:", confusion_matrix.trace() / confusion_matrix.sum())
+    print(anom_results)
 
 if __name__ == "__main__":
     from parser import Parser

@@ -66,15 +66,29 @@ def print_score(tree):
     print(f"Accuracy: {correct}/{total}")
 
 
-def print_trees(bin_classifier, anom_classifier):
-    if bin_classifier:
-        print("ANOMALY/SAFE tree:")
-        bin_classifier.print_tree()
-        print_score(bin_classifier)
-    if anom_classifier:
-        print("ANOMALY TYPE CLASSIFICATION tree")
-        anom_classifier.print_tree()
-        print_score(anom_classifier)
+def print_trees(typed_anom_classifiers, parser):
+    def display(sensor_index, sensor_type):
+        tree = typed_anom_classifiers[sensor_type][sensor_index]
+        if tree is None:
+            print("No anomalies detected yet for this sensor.")
+        else:
+            tree.print_tree()
+
+    while True:
+        try:
+            index_response = input("Enter sensor index: ")
+            sensor_index = int(index_response) - 1
+        except ValueError:
+            print(f"Invalid sensor index: '{index_response}'")
+            continue
+        sensor_type = input(f"Enter sensor type ({'/'.join(parser.type)}): ")
+        while sensor_type not in parser.type:
+            sensor_type = input(f"Invalid sensor type: '{sensor_type}'")
+        if not display(sensor_index=sensor_index, sensor_type=sensor_type):
+            return
+        continue_response = input("Show more graphs? (Y/n): ").lower()
+        if continue_response not in ['yes', 'y']:
+            return
 
 def progress_bar(index, warmup_stage: int, warmup_times: list, bar_length=40):
     total_time = warmup_times[warmup_stage-1]
@@ -88,32 +102,53 @@ def progress_bar(index, warmup_stage: int, warmup_times: list, bar_length=40):
     sys.stdout.write(text)
     sys.stdout.flush()
 
-def show_weights(sensor_index, sensor_type) -> None:
-    filename = get_filename("weights", sensor_index, sensor_type=sensor_type)
-    df = pd.read_csv(filename)
-    indices = df.columns.astype(int).to_numpy()
-    adjusted_indices = [i + 1 if i < sensor_index else i for i in indices]
-    weights = df.iloc[0].to_numpy()
-    def weight_to_color(weight, max_positive_weight, max_negative_weight):
-        if weight >= 0:
-            normalized_weight = weight / max_positive_weight
-            return plt.cm.Reds(normalized_weight)
-        else:
-            normalized_weight = -weight / max_negative_weight
-            return plt.cm.Blues(normalized_weight)
-    max_positive_weight = max(weights.max(), 1e-10)
-    max_negative_weight = max(-weights.min(), 1e-10)
-    colours = [weight_to_color(w, max_positive_weight, max_negative_weight) for w in weights]
-    save_file = f"{config['GRAPH_DIR']}/{sensor_type.lower()}/sensor_{sensor_index+1}.png"
-    plt.figure(figsize=(8, 5))
-    plt.bar(adjusted_indices, weights, color=colours)
-    plt.xlabel('Feature Index')
-    plt.ylabel('Weights')
-    plt.title('Model Weights')
-    plt.grid(True)
-    plt.xticks(adjusted_indices)
-    plt.savefig(save_file)
-    plt.show()
+def show_weights(parser) -> None:
+    def display(sensor_index, sensor_type):
+        filename = get_filename("weights", sensor_index, sensor_type=sensor_type)
+        try:
+            df = pd.read_csv(filename)
+        except pd.errors.EmptyDataError:
+            print("Model not fully trained yet.")
+            return False
+        indices = df.columns.astype(int).to_numpy()
+        adjusted_indices = [i + 1 if i < sensor_index else i for i in indices]
+        weights = df.iloc[0].to_numpy()
+        def weight_to_color(weight, max_positive_weight, max_negative_weight):
+            if weight >= 0:
+                normalized_weight = weight / max_positive_weight
+                return plt.cm.Reds(normalized_weight)
+            else:
+                normalized_weight = -weight / max_negative_weight
+                return plt.cm.Blues(normalized_weight)
+        max_positive_weight = max(weights.max(), 1e-10)
+        max_negative_weight = max(-weights.min(), 1e-10)
+        colours = [weight_to_color(w, max_positive_weight, max_negative_weight) for w in weights]
+        save_file = f"{config['GRAPH_DIR']}/{sensor_type.lower()}/sensor_{sensor_index+1}.png"
+        plt.figure(figsize=(8, 5))
+        plt.bar(adjusted_indices, weights, color=colours)
+        plt.xlabel('Feature Index')
+        plt.ylabel('Weights')
+        plt.title('Model Weights')
+        plt.grid(True)
+        plt.xticks(adjusted_indices)
+        plt.savefig(save_file)
+        plt.show()
+        return True
+    while True:
+        try:
+            index_response = input("Enter sensor index: ")
+            sensor_index = int(index_response) - 1
+        except ValueError:
+            print(f"Invalid sensor index: '{index_response}'")
+            continue
+        sensor_type = input(f"Enter sensor type ({'/'.join(parser.type)}): ")
+        while sensor_type not in parser.type:
+            sensor_type = input(f"Invalid sensor type: '{sensor_type}'")
+        if not display(sensor_index=sensor_index, sensor_type=sensor_type.upper()):
+            return
+        continue_response = input("Show more graphs? (Y/n): ").lower()
+        if continue_response not in ['yes', 'y']:
+            return
 
 def get_graph(sensor_type_index, parser, safe_trace_file=config["SAFE_TRACE_FILE"]):
     all_weights = []
@@ -231,6 +266,8 @@ def print_intro(types: list, warmup_times: tuple):
     print("  - 'q'   : Quit the application.")
     print("  - 'a'   : Add a synthetic anomaly.")
     print("  - 'g'   : Display a graph showing connections between sensors.")
+    print("  - 'w'   : Display the weights of the model for a particular sensor.")
+    print("  - 'p'   : Display the STL formulae for each sensor.")
     print("=" * 65)
     print("\nNote:")
     print(f"  - There are two 'warmup' phases of length {' and '.join(warmup_times)},")

@@ -17,11 +17,12 @@ def monitor_loop(parser) -> None:
     warmup1 = True
     warmup2 = False
     safe_trace_file = config["SAFE_TRACE_FILE"]
-    typed_anom_classifiers = {t: None for t in parser.type}
-    typed_bin_classifiers = {t: np.full((parser.type_indices[i]), None, dtype=object) for i, t in enumerate(parser.type)}
+    trees = {
+        t: np.full((parser.type_indices[i+1] - parser.type_indices[i]), None, dtype=object) 
+        for i, t in enumerate(parser.type)
+    }
     typed_formulae = {t: [] for t in parser.type}
     typed_anomaly_statuses = {t: [] for t in parser.type}
-    anom_classifier = None
     formulae = []
     bin_classifiers = []
     anomaly_statuses = []
@@ -36,30 +37,14 @@ def monitor_loop(parser) -> None:
             print("Exiting monitor...")
             exit()
         if response == "p":
-            for sensor_type in parser.type:
-                print("=" * 65)
-                print(f"{sensor_type.upper()} TREES")
-                print("=" * 65)
-                print_trees(bin_classifier=typed_bin_classifiers[sensor_type], anom_classifier=typed_anom_classifiers[sensor_type])
-                print("=" * 65)
+            print(trees.items())
+            print_trees(trees, parser=parser)
             continue
         if response == "w":
             if warmup1:
                 print("Connections not yet learnt.")
                 continue
-            while True:
-                try:
-                    sensor_index = int(input("Enter sensor index: ")) - 1
-                except ValueError:
-                    print(f"Invalid sensor index: '{sensor_index}'")
-                    continue
-                sensor_type = input(f"Enter sensor type ({'/'.join(parser.type)}): ")
-                while sensor_type not in parser.type:
-                    sensor_type = input(f"Invalid sensor type: '{sensor_type}'")
-                show_weights(sensor_index=sensor_index, sensor_type=sensor_type.upper())
-                continue_response = input("Show more graphs? (Y/n): ").lower()
-                if continue_response not in ['yes', 'y']:
-                    break
+            show_weights(parser=parser)
             continue
         if response == "g":
             plot_graph(parser=parser)
@@ -89,13 +74,11 @@ def monitor_loop(parser) -> None:
         train = preprocess_trace(infile=safe_trace_file)
         for i, sensor_type in enumerate(parser.type):
             prev_type = list(parser.type)[i-1]
-            typed_anom_classifiers[prev_type] = copy.deepcopy(anom_classifier)
-            typed_bin_classifiers[prev_type] = copy.deepcopy(bin_classifiers)
+            # typed_bin_classifiers[prev_type] = copy.deepcopy(bin_classifiers)
             typed_formulae[prev_type] = copy.deepcopy(formulae)
             typed_anomaly_statuses[prev_type] = anomaly_statuses.copy()
             anomaly_statuses = typed_anomaly_statuses[sensor_type]
-            anom_classifier = typed_anom_classifiers[sensor_type]
-            bin_classifiers = typed_bin_classifiers[sensor_type]
+            # bin_classifiers = typed_bin_classifiers[sensor_type]
             formulae = typed_formulae[sensor_type]
             indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
             train_used = train[:, indices_used]
@@ -118,8 +101,8 @@ def monitor_loop(parser) -> None:
                 new_trace = ",".join(np.abs(residuals).astype(str))
                 formula = formulae[sensor_index]
                 if not new_batch_ok(residuals=residuals, start_index=parser.type_indices[i], formula=formula, new_batch=new_batch, sensor_index=sensor_index, sensor_type=sensor_type):
-                    confirmation, anom_classifier = log_anomaly(
-                        new_trace, sensor_index, operators=parser.stl, tree=anom_classifier, warmup2=warmup2, sensor_type=sensor_type
+                    confirmation, trees[sensor_type][sensor_index] = log_anomaly(
+                        new_trace, sensor_index, operators=parser.stl, tree=trees[sensor_type][sensor_index], warmup2=warmup2, sensor_type=sensor_type
                     )
                     if confirmation:
                         if not anomaly_statuses[sensor_index]:
