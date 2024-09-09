@@ -259,7 +259,7 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
 def print_intro(types: list, warmup_times: tuple):
     formatted_types = f"{', '.join(types[:-1])} and {types[-1]}"
     print("=" * 65)
-    print(f"Online {formatted_types} monitor".center(65))
+    print(f"Online {formatted_types} monitor with LUNAR".center(65))
     print("=" * 65)
     print("Instructions:")
     print("  - Enter : Read the next batch.")
