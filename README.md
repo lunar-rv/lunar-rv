@@ -17,11 +17,6 @@ cd lunar
 pip install -r requirements.txt
 ```
 
-It may also be necessary to add this directory to PYTHONPATH:
-```bash
-# Export directories to path
-export PYTHONPATH=$PYTHONPATH:path/to/monitor
-```
 
 This repository contains:
 - *gas_network.spec*: example specification for provided gas network data
