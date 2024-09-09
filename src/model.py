@@ -38,7 +38,7 @@ def get_residuals(
 
 def get_safety_dist(sensor_index, sensor_type=None) -> float:
     safe_residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
-    safe_traces = np.genfromtxt(safe_residuals_file, delimiter=",", dtype=float)
+    safe_traces = np.abs(np.genfromtxt(safe_residuals_file, delimiter=",", dtype=float))
     sigma = np.std(safe_traces)
     mu = np.mean(safe_traces)
     return mu, sigma
