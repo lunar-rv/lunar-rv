@@ -8,10 +8,10 @@ To set up the tool, carry out the following:
 
 ```bash
 # Clone the repository
-git clone https://github.com/jg2023/monitor.git
+git clone https://github.com/jg2023/lunar.git
 
 # Navigate to the project directory
-cd monitor
+cd lunar
 
 # Install dependencies
 pip install -r requirements.txt
