@@ -17,11 +17,8 @@ def classify_season_slots(date):
 
 
 def classify_time_slots(time):
-    # Define the hour of the time object
     hour = time.hour
-    # Create an array of 8 elements initialized to 0
     slots = [0] * 8
-    # Determine which slot the hour falls into (each slot is 3 hours)
     index = hour // 3
     # Set the appropriate slot to 1
     slots[index] = 1
@@ -54,13 +51,10 @@ def preprocess(
     ).dt.time
 
     if time_features:
-        # Apply the classify_time_slots function
         time_slots = df["ORA Campionamento"].apply(classify_time_slots)
-        # Convert the list of lists into a DataFrame
         time_slot_df = pd.DataFrame(
             time_slots.tolist(), columns=[f"Time Slot {i}" for i in range(8)]
         )
-        # Concatenate this DataFrame with the original df
         df = pd.concat([df, time_slot_df], axis=1)
 
     if season_features:
@@ -69,7 +63,6 @@ def preprocess(
             season_slots.tolist(), columns=["Winter", "Spring", "Summer"]
         )
         df = pd.concat([df, season_slot_df], axis=1)
-    # Create a multi-index for pivoting
     df_pivot = df.pivot_table(
         index=["Data Campionamento", "ORA Campionamento", "ID"],
         columns="Tipo Grandezza",
@@ -81,39 +74,34 @@ def preprocess(
     )
     df_pivot.reset_index(drop=True, inplace=True)
 
-    # Prepare data structure to collect entries per ID
     num_ids = df["ID"].max()
     data_by_id = [None] * num_ids
     # Process each group
     for (id_index, group) in df_pivot.groupby("ID"):
         if not group.empty:
-            # Ensure each ID has a dedicated list
             if data_by_id[id_index - 1] is None:
                 data_by_id[id_index - 1] = []
             data_by_id[id_index - 1].append(
                 group[["Pressione a valle", "Temperatura Ambiente"]].to_numpy()
             )
 
-    # Determine the maximum number of timestamps
     max_length = max(
         len(data) for sublist in data_by_id for data in sublist if sublist is not None
     )
 
-    # Initialize final data array with NaNs
-    final_data_shape = (max_length, num_ids * 2)  # Base size for ID columns
+    final_data_shape = (max_length, num_ids * 2)
     if time_features:
         final_data_shape = (
             final_data_shape[0],
             final_data_shape[1] + 8,
-        )  # Add space for time slots
+        )
     if season_features:
         final_data_shape = (
             final_data_shape[0],
             final_data_shape[1] + 3,
-        )  # Add space for season slots
+        ) 
     final_data = np.full(final_data_shape, np.nan)
 
-    # Store the season and time slot values
     season_slot_values = season_slot_df.to_numpy() if season_features else None
     time_slot_values = time_slot_df.to_numpy() if time_features else None
 

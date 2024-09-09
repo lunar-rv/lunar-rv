@@ -94,11 +94,8 @@ def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, ini
     temperature = initial_temp
     
     for _ in range(max_iters):
-        # Generate a random neighbouring solution
         next_x = current_x + random.choice([-1, 1])
         next_y = current_y + random.choice([-1, 1])
-        
-        # Ensure the next point is within bounds
         next_x = np.clip(next_x, 1, batch_size - 1)
         next_y = np.clip(next_y, 1, batch_size - 1)
         
@@ -115,45 +112,3 @@ def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, ini
             break
     
     return best_x, best_y
-
-def particle_swarm_optimization(traces, batch_size, operators, evaluation_fn, num_particles=30, max_iter=100, w=0.5, c1=1.5, c2=1.5):
-    # Initialize the particles' positions and velocities
-    particles = np.random.randint(1, batch_size, size=(num_particles, 2))
-    velocities = np.random.uniform(-1, 1, size=(num_particles, 2))
-    
-    # Initialize personal best positions and scores
-    pbest_positions = np.copy(particles)
-    pbest_scores = np.full(num_particles, -np.inf)
-    
-    # Initialize global best position and score
-    gbest_position = None
-    gbest_score = -np.inf
-    
-    for i in range(max_iter):
-        for j in range(num_particles):
-            # Evaluate the fitness of the current particle
-            x, y = particles[j]
-            score = evaluation_fn(traces, x, y, batch_size=batch_size)
-            
-            # Update personal best if the current score is better
-            if score > pbest_scores[j]:
-                pbest_positions[j] = particles[j]
-                pbest_scores[j] = score
-            
-            # Update global best if the current score is better
-            if score > gbest_score:
-                gbest_position = particles[j]
-                gbest_score = score
-        
-        # Update velocities and positions of particles
-        for j in range(num_particles):
-            r1, r2 = np.random.rand(2)
-            velocities[j] = (
-                w * velocities[j] +
-                c1 * r1 * (pbest_positions[j] - particles[j]) +
-                c2 * r2 * (gbest_position - particles[j])
-            )
-            particles[j] = np.clip(particles[j] + velocities[j].astype(int), 1, batch_size-1)
-    
-    best_x, best_y = gbest_position
-    return best_x, best_y, gbest_score

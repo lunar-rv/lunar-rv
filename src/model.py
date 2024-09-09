@@ -67,22 +67,14 @@ def new_batch_ok(residuals, start_index: int, formula=None, new_batch: list = No
         old_residuals = residuals
         old_sensor_values = sensor_values
     evaluations = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values)
-    # if rob.min() > -epsilon:
-    #     return True
-        # print("Evaluation", evaluation)
     if quantitative_rob(evaluations, residuals=residuals):
         return True    
     if print_info:
         print("Failed to satisfy formula: ", formula)
         mean_res = np.round(residuals.mean(), 4)
-        # # min_rob = np.round(rob.min(), 4)
         mu, sigma = get_safety_dist(sensor_index, sensor_type)
         mean_safety_prob = np.round(stats.norm.cdf(mean_res, mu, sigma), 4)
-        # min_safety_prob = np.round(stats.norm.cdf(residuals.max(), mu, sigma), 4)
-        # print("Average residuals:", residuals.mean())
-        # print("Minimum residual:", residuals.max())
         print(f"Likelihood of average residuals of {mean_res} or higher: {1-mean_safety_prob}")
-    # print(f"Likelihood of robustness {min_rob} or lower: {min_safety_prob}")
     if config["PLOT_ANOMALY_GRAPHS"]:
         for i in range(len(list(formula))):
             phi = formula[i]
@@ -117,7 +109,6 @@ def new_batch_ok(residuals, start_index: int, formula=None, new_batch: list = No
                 sensor_type=sensor_type,
                 preds=None
             )
-    # print_anomaly_info(model, new_batch, formula)
     return False
 
 def update_spec(
@@ -174,9 +165,6 @@ def update_spec(
         s.seek(0)
         s.write(repr(spec))
         s.truncate()
-    # print("=" * 50)
-    # print(f"Formula is now: {spec}")
-    # print("=" * 50)
     return formulae, bin_classifier
 
 
@@ -211,32 +199,12 @@ def log_anomaly(
         tree.print_tree()
     return True, tree
 
-    # "SMALL_PRESSURE_ANOMALY_SIZE": 0.001,
-    # "LARGE_PRESSURE_ANOMALY_SIZE": 0.005,
-    # "SMALL_TEMPERATURE_ANOMALY_SIZE": 0.5,
-    # "LARGE_TEMPERATURE_ANOMALY_SIZE": 2.5,
-
 def apply_anomaly(data: np.ndarray, anomaly_indices: np.ndarray, anom_type: str) -> np.ndarray:
     if anom_type != "normal":
-        # pressure_indices = anomaly_indices[anomaly_indices < 27]
-        # temp_indices = anomaly_indices[anomaly_indices >= 27]
-        # p_increase = 0.001 if anom_type == "small" else 0.005
-        # t_increase = 0.5 if anom_type == "small" else 2.5
-        # data[:, pressure_indices] += p_increase
-        # data[:, temp_indices] += t_increase
-        anomaly_size = data[anomaly_indices].std(axis=0)
-        if anom_type == "large":
-            anomaly_size *= 5
+        print(data.shape)
+        anomaly_size = data[:, anomaly_indices].std(axis=0)
+        print(anom_type, anomaly_size)
+        if anom_type == "small":
+            anomaly_size /= 2
         data[:, anomaly_indices] += anomaly_size
     return data
-
-def main():
-    residuals_1 = np.genfromtxt("outputs/residuals/sensor_1_residuals.csv", delimiter=",", dtype=float)
-    residuals_2 = np.genfromtxt("outputs/residuals/sensor_2_residuals.csv", delimiter=",", dtype=float)
-    print(np.mean(residuals_1, axis=1).max())
-    print(np.mean(residuals_2, axis=1).max())
-
-
-
-if __name__ == "__main__":
-    main()

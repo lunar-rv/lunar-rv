@@ -1,5 +1,5 @@
 {
-    "WARMUP_1_PROPORTION": 0.1,
+    "WARMUP_1_PROPORTION": 0.25,
     "EPSILON_COEF": 1,
     "WARMUP_ANOMALIES": 20,
     "WINDOW_SIZE": 15,
@@ -12,7 +12,7 @@
     "WEIGHTS_DIR": "outputs/weights",
     "LOG_FILE": "outputs/log.txt",
     "GRAPH_DIR": "outputs/graphs",
-    "BIDIRECTIONAL_ONLY": false,
+    "BIDIRECTIONAL_ONLY": true,
     "ONLINE": true,
     "PLOT_RESIDUALS_GRAPHS": false,
     "ADD_ANOMALIES_OFFLINE": false,

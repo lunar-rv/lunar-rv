@@ -37,7 +37,7 @@ def monitor_loop(parser) -> None:
             print("Exiting monitor...")
             exit()
         if response == "p":
-            print(trees.items())
+            # print(trees.items())
             print_trees(trees, parser=parser)
             continue
         if response == "w":
@@ -49,8 +49,9 @@ def monitor_loop(parser) -> None:
         if response == "g":
             plot_graph(parser=parser)
             continue
-        anomaly_info = read_anomaly_indices() if response == "a" and not (warmup1 or warmup2) else ("normal", np.array([]))
-        anom_type, anomaly_indices = anomaly_info
+        # anomaly_info = read_anomaly_indices() if response == "a" and not (warmup1 or warmup2) else ("normal", np.array([]))
+        # anomaly_info = ("normal", np.array([]))
+        # anom_type, anomaly_indices = anomaly_info
         new_batch = get_new_batch(
             batch_size=parser.batch,
             index=index,
@@ -82,7 +83,7 @@ def monitor_loop(parser) -> None:
             formulae = typed_formulae[sensor_type]
             indices_used = np.arange(parser.type_indices[i], parser.type_indices[i+1])
             train_used = train[:, indices_used]
-            test = apply_anomaly(data=test, anomaly_indices=anomaly_indices, anom_type=anom_type)
+            # test = apply_anomaly(data=test, anomaly_indices=anomaly_indices, anom_type=anom_type)
             test_used = test[:, indices_used]
             num_evaluations = len(indices_used)
             for sensor_index in range(num_evaluations):

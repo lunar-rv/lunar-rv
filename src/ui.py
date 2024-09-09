@@ -264,7 +264,7 @@ def print_intro(types: list, warmup_times: tuple):
     print("Instructions:")
     print("  - Enter : Read the next batch.")
     print("  - 'q'   : Quit the application.")
-    print("  - 'a'   : Add a synthetic anomaly.")
+    # print("  - 'a'   : Add a synthetic anomaly.")
     print("  - 'g'   : Display a graph showing connections between sensors.")
     print("  - 'w'   : Display the weights of the model for a particular sensor.")
     print("  - 'p'   : Display the STL formulae for each sensor.")
@@ -272,13 +272,5 @@ def print_intro(types: list, warmup_times: tuple):
     print("\nNote:")
     print(f"  - There are two 'warmup' phases of length {' and '.join(warmup_times)},")
     print("    which must be completed before monitoring begins.")
-    print("  - Synthetic anomalies cannot be added during the warmup phases.")
+    # print("  - Synthetic anomalies cannot be added during the warmup phases.")
     print("=" * 65) 
-
-if __name__ == "__main__":
-    from tree.formula import Formula
-    anomaly_indices = [1,2,3,5,6]
-    formula = Formula.build_formula(0.1, "F", 6, "<=")
-    new_batch = ['PDM23;03/01/2023;00:00:00;0.0389000015258789;Pressione a valle\n', 
-                 'PDM24;03/01/2023;00:00:00;0.0362999992370605;Pressione a valle\n']
-    get_and_display_anomaly_times(anomaly_indices=anomaly_indices, new_batch=new_batch, formula=formula)

@@ -1,9 +1,7 @@
 print("Loading code for decision tree construction...")
 import numpy as np
 from tree.new_formula import FormulaFactory
-from tree.compare import compare
 import random
-from ui import print_score # for testing purposes only
 import json
 with open("config.json") as file:
     config = json.load(file)
@@ -51,8 +49,6 @@ def stl_entropy(left_lab, left_rob, right_lab, right_rob) -> float:
 
     H_left = calculate_entropy(left_lab, left_rob)
     H_right = calculate_entropy(right_lab, right_rob)
-
-    # H = l * H_left + r * H_right
     H = l * H_left * r * H_right
     return H
 
@@ -66,17 +62,6 @@ def find_best_binary_threshold(values, labels, n=5) -> float:
     anomaly_values = values[labels == "Anomaly"]
 
     best_threshold = (safe_values.min() + anomaly_values.max()) / 2
-    # safe_midpoint = np.median(safe_values)
-    # anomaly_midpoint = np.median(anomaly_values)
-    # possible_thresholds = np.linspace(safe_midpoint, anomaly_midpoint, n)
-    # best_threshold = None
-    # best_accuracy = 0
-    # for threshold in possible_thresholds:
-    #     classified_labels = np.where(values < threshold, "Anomaly", "Safe")
-    #     accuracy = np.mean(classified_labels == labels)
-    #     if accuracy > best_accuracy:
-    #         best_accuracy = accuracy
-    #         best_threshold = threshold
     return best_threshold
 
 
@@ -115,8 +100,6 @@ def choose_formula(traces: np.ndarray, batch_size, operators: list, binary=False
         left_lab, left_rob, right_lab, right_rob = split_with_formula(traces, formula, binary=binary)
         H_1 = stl_entropy(left_lab, left_rob, right_lab, right_rob)
         H_2 = entropy(left_lab, right_lab)
-
-        # print("Boundary:", boundary, "Operator:", operator, "Entropy:", H_2, "STL Entropy:", H_1)
         beta = tree_config["BETA"]
         # beta = 5
         epsilon = 1e-7
@@ -258,132 +241,3 @@ class TreeNode:
             rebuild_tree()
         else:
             next_node.update_tree(trace=trace, batch_size=batch_size, depth=depth+1, binary=binary, operators=operators)
-                
-
-def small():
-    return random.gauss(2, 1)
-
-
-def medium():
-    return random.gauss(3, 1)
-
-
-def large():
-    return random.gauss(4, 1)
-
-
-def main():
-    UPDATE = True
-    random.seed(42)
-    num_examples = 5
-    false_alarms = np.array(
-        [
-            [medium(), small(), small(), small(), large(), small(), medium(), small()] + ["false alarm"]
-            for _ in range(num_examples)
-        ]
-    )
-    # step_faults = np.array([[medium(), medium(), small(), large(), medium()] +["step fault"] for _ in range(num_examples)])
-    # ramp_faults = np.array([[large(), small(), large(), large(), medium()] + ["ramp fault"] for _ in range(num_examples)])
-    # traces = np.vstack((false_alarms, step_faults, ramp_faults))
-    # tree = Node.build_tree(traces)
-    # tree.print_tree()
-    # print_score(tree)
-    traces = false_alarms
-
-    if UPDATE:
-        tree = TreeNode.build_tree(traces, max_depth=tree_config["MAX_DEPTH"])
-        tree.print_tree()
-        num_updates = 3
-        new_false_alarms = np.array(
-            [
-                [medium(), small(), small(), small(), large(), small(), medium(), small()] + ["false alarm"]
-                for _ in range(num_updates)
-            ]
-        )
-        new_step_faults = np.array(
-            [
-                [medium(), medium(), small(), large(), medium(), medium(), small(), medium()] + ["step fault"]
-                for _ in range(num_updates)
-            ]
-        )
-        new_ramp_faults = np.array(
-            [
-                [large(), small(), large(), large(), medium(), large(), large(), medium()] + ["ramp fault"]
-                for _ in range(num_updates)
-            ]
-        )
-        new_traces = np.vstack((new_step_faults, new_false_alarms, new_ramp_faults))
-        for t in new_traces:
-            print(f"Updating with new trace: {t}")
-            tree.update_tree(t)
-            tree.print_tree()
-        print_score(tree)
-        traces = np.vstack((traces, new_traces))
-    new_trace = np.array([3, 2.5, 2.5, 2.1, 1.9])
-    label = tree.classify(new_trace)
-    print("New trace is classified as:", label)
-    print("=" * 50)
-    compare(traces)
-
-def test_formula_choice():
-    traces = np.array(
-        [
-            [
-                "2.6966250903907714",
-                "4.379278558940257",
-                "0.6597879962893545",
-                "3.3250793654472925",
-                "4.539343562372228",
-                "step fault",
-            ],
-            [
-                "2.0121587938482146",
-                "5.1129167229278405",
-                "1.8542564804072446",
-                "4.2621021712229075",
-                "4.033231829126633",
-                "step fault",
-            ],
-            [
-                "4.217024274483255",
-                "3.5211997578859293",
-                "0.9738198001929221",
-                "3.1588943443926927",
-                "4.167249204341795",
-                "step fault",
-            ],
-            [
-                "5.2048349333331725",
-                "0.4140925536018947",
-                "3.2184417587032312",
-                "4.249048507200529",
-                "3.116865597963296",
-                "ramp fault",
-            ],
-            [
-                "5.021137490791534",
-                "2.073102287961573",
-                "4.183463272528609",
-                "1.8249435631146262",
-                "3.285640604985273",
-                "ramp fault",
-            ],
-        ]
-    )
-    formula = choose_formula(traces=traces)
-    left_traces, right_traces = split_with_formula(traces, formula, return_traces=True)
-    print("Left:", left_traces)
-    print("Right:", right_traces)
-    print(formula.spec)
-
-def test_entropy():
-    traces = np.array([
-        [1,1,1,1,'s'],
-        [0.5,0.5,0.5,0.5,'s'],
-        [5,5,5,5,'l'],
-    ])
-    formula = choose_formula(traces)
-    print(formula)
-
-if __name__ == "__main__":
-    test_formula_choice()
