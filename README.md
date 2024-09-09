@@ -60,7 +60,7 @@ Various options for fine-tuning the monitor configuration are found in *config.j
     - This is followed by an integer argument which represents the number of sensors for that reading type in the input dataset. For example, *add type pressure 27* will classify 27 columns in the dataset as pressure readings.
     - Reading types in the dataset are specified from left to right.
 
-For an example of an acceptable specification, see *spec.file*.
+For an example of an acceptable specification, see *test.spec* and *gas_network.spec*.
 ## Input formatting
 - Inputs should be presented in CSV (comma-separated variables) format without column headers.
 - Each column contains all the readings for a particular sensor, ordered from earliest to most recent.
