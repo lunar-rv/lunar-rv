@@ -45,13 +45,13 @@ Various options for fine-tuning the monitor configuration are found in *config.j
 - *GAMMA*: controls the extent to which tighter F intervals are rewarded when evaluating formulae for anomaly detection
 - *EPSILON_COEF*: this constant, multiplied by the standard deviation of the cluster of robustness values for safe traces, determines the distance of the decision boundary from the least robust data point
 - *BIDIRECTIONAL_ONLY*: when this option is set to true, the sensor connection graphs will only display an edge *IJ* if Sensor I contributes significantly to Sensor J and vice versa
-- *TREE_CONFIG -> MAX_DEPTH*: the maximum depth of the anomaly classification trees
+- *TREE_CONFIG -> MAX_DEPTH*: the maximum depth of the anoWmaly classification trees
 - *TREE_CONFIG -> BETA*: a constant which determines the relative importance of STL-specific and traditional entropy measures. See report for details.
 - *WARMUP_ANOMALIES*: number of anomalies that need to be processed before the monitor switches to a binary classification approach
 - *ONLINE*: If this is set to *true*, the monitor is run in online mode - new batches arrive upon being prompted by the user; the user can 
 - *PLOT_RESIDUALS_GRAPHS*: in offline mode, this provides an option to display the predicted values against the actual values of the data over time.
 Offline mode is for evaluating the program.
-- *ADD_ANOMALIES_OFFLINE*: add synthetic anomalies to the data when running the monitor offline. This makes it possible to evaluate the model's ability to recall actual anomalies.
+- *WINDOW_SIZE*: 
 
 ## Specification language guidelines
 - *input = \<path/to/input/file\>*: the file containing the input dataset (formatting guidelines are below)
