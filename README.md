@@ -49,9 +49,7 @@ Various options for fine-tuning the monitor configuration are found in *config.j
 - *TREE_CONFIG -> BETA*: a constant which determines the relative importance of STL-specific and traditional entropy measures. See report for details.
 - *WARMUP_ANOMALIES*: number of anomalies that need to be processed before the monitor switches to a binary classification approach
 - *ONLINE*: If this is set to *true*, the monitor is run in online mode - new batches arrive upon being prompted by the user; the user can 
-- *PLOT_RESIDUALS_GRAPHS*: in offline mode, this provides an option to display the predicted values against the actual values of the data over time.
-Offline mode is for evaluating the program.
-- *WINDOW_SIZE*: 
+- *WINDOW_SIZE*: the rolling window size used for linear regression.
 
 ## Specification language guidelines
 - *input = \<path/to/input/file\>*: the file containing the input dataset (formatting guidelines are below)
