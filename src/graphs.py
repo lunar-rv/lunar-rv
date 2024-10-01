@@ -38,7 +38,6 @@ def plot_array(trace: np.ndarray, sensor_index: int, batch_start_time: datetime,
         plt.plot(preds, label="Predictions", color='green')
     for start, end in bounds:
         plt.axvspan(start, end, color='orange', alpha=0.3, label="Anomaly" if start == bounds[0][0] else "")
-    print("START", start, "END", end)
     plt.xlabel("Time")
     plt.xticks(int_ticks, [dt.strftime("%H:%M") for dt in dt_ticks])
     plt.ylabel(f"Sensor {sensor_index+1} {keyword}")

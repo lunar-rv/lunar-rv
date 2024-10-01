@@ -97,7 +97,6 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
                 start_bound = this_value
             if i+1 == N or indices[i+1] - 1 != this_value:
                 bounds.append((start_bound, this_value + end - 1))
-            print(f"Start: {start_bound}, TV: {this_value}, PBS: {prev_backlog_size}, E: {end} I: {indices}")
         return bounds
     print("Violated subformula was:", formula)
     print(f"This means: {formula.human_readable(time_period)}.")
@@ -108,7 +107,6 @@ def get_and_display_anomaly_times(anomaly_indices: list, formula, new_batch: lis
     datetime_str = f"{date} {time}"
     start_time = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
     bounds = get_anomaly_bounds(anomaly_indices)
-    print("BOUNDS", bounds)
     for interval in bounds:
         interval_start = (start_time + timedelta(minutes = (int(interval[0])) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
         interval_end = (start_time + timedelta(minutes = (int(interval[1])) * time_period)).strftime("%d/%m/%Y %H:%M:%S")
