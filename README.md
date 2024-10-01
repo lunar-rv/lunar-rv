@@ -69,3 +69,30 @@ For an example of an acceptable specification, see *test.spec* and *gas_network.
 - Finally, columns N+1 and N+2 contain the date and the time of the set of N sensor readings respectively, in the format *dd/mm/yyyy*,*hh/mm/ss*
 - There must not be any missing sensor values.
 - For an example of an acceptable input format with 27 pressure sensors and 27 temperature sensors, see *inputs/traces.csv*
+
+## Anomaly types
+- Notes:
+    - Each sensor in the network has its own anomaly detection formula and classification tree
+The STL formula information for anomaly detection is to be interpreted as follows:
+-  G/always:
+![G graph][./examples/G.png]
+    - Here, the overall formula includes a *G* subformula which requires that the residuals should be below a certain value (here, 0.554695...) at all times. This was violated twice between 01:00 and 02:00. The shaded area indicates the batch of 96 readings (= 24 hours) on which this formula was evaluated. 
+    - This operator is useful for anomalies characterised by a short, large spike, as only one value above the *G* threshold is required for an anomaly to be flagged.
+
+- F/eventually:
+![F graph][./examples/F.png]
+    - The F_[0, *b*) subformula describes the property that residuals should be below a certain value at one point (at least) in every period of *b* time steps. If a time step in the dataset is 15 minutes, F_[0, 77) error < 0.208015... means that the residual size should be less than 0.208015... at least once in every period of length 19h 15m.
+    - The key period for which the relational formula (i.e. error < 0.208015...) is violated actually lasts for 140 time steps, or 35 hours. On the graph, the whole 35-hour period is shaded, even though a violation would also be detected if this period was shorter. 
+    - Other violation periods which did not last long enough to cause a violation of the *F* subformula are not shaded as they do not explain why an anomaly was detected.
+    - This operator is important for detecting anomalies which last for a prolonged period of time.
+
+- G_avg/G_bar/mean:
+![G_avg graph][./examples/G_avg.png]
+    - G_[0, 80) error < 1.51603... means that the size of the error must *on average* be below 1.51603... during every period of 80 consecutive time steps (here, 20 hours). 
+    - The shading of the period from 00:45 to 23:45 indicates that the *G_avg* subformula was violated during the periods 00:45-20:45, 01:00-21:00, 01:15-21:15... 3:45-23:45. 
+    - This operator also helps to detect longer-lasting anomalies, and is more robust to noise than the *F* operator.
+    - In some cases, there might be multiple periods of violation within the batch
+
+![Graph showing overlap][./examples/overlap.png]
+
+
