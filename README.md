@@ -97,5 +97,5 @@ The STL formula information for anomaly detection is to be interpreted as follow
 
 ![Graph showing overlap](./examples/overlap.png)
 
-    - In this graph, the formula G_avg[0, 69) error < 0.248382... was violated in every period of length 17h 15m STARTING between 09:00 and 17:45 on Jan 22nd, *and* every period of the same length STARTING between 20:30 and 23:45 on the 22nd. Since the end points of the first set of violations (02:15-11:00) overlap with the second set of violations, the shaded areas overlap, resulting in a darker yellow area between 20:30 and 11:00.
+- In this graph, the formula G_avg[0, 69) error < 0.248382... was violated in every period of length 17h 15m STARTING between 09:00 and 17:45 on Jan 22nd, *and* every period of the same length STARTING between 20:30 and 23:45 on the 22nd. Since the end points of the first set of violations (02:15-11:00) overlap with the second set of violations, the shaded areas overlap, resulting in a darker yellow area between 20:30 and 11:00.
 
