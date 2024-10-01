@@ -45,30 +45,3 @@ class LargeWeightsRegressor:
         self.coef_ = None
         self.sensors_used = None
         self.indices_used = None
-
-
-def main():
-    # data = preprocess(safe_trace_file)[:, 27:]
-    # np.savetxt("inputs/temperatures.csv", data, delimiter=",")
-    data = np.genfromtxt("inputs/temperatures.csv", delimiter=",", dtype=float)
-    np.set_printoptions(suppress=True)
-    from sklearn.model_selection import train_test_split
-    train, test = train_test_split(data, test_size=0.2, random_state=42)
-    def X_Y_split(data: np.ndarray, i: int):
-        X = np.delete(data, i, axis=1)
-        Y = data[:, i].astype(float)
-        return X, Y
-    for sensor_index in range(2):
-        X_train, y_train = X_Y_split(train, sensor_index)
-        X_test, y_test = X_Y_split(test, sensor_index)
-        model = LargeWeightsRegressor(sensor_index=sensor_index)
-        model.fit(X_train, y_train)
-        predictions = model.predict(X_test)
-        residuals = np.abs(predictions - y_test)
-        print(residuals.mean())
-        # write_weights(MODEL)
-        # show_weights(sensor_index)
-
-
-if __name__ == "__main__":
-    main()

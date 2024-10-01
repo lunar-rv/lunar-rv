@@ -32,7 +32,7 @@ def grid_search(traces, batch_size, evaluation_fn, operators):
 def grid_search_1d(traces, batch_size, evaluation_fn, operators):
     best_score = -np.inf
     var_type = "F_end" if "F" in operators else "G_avg_end"
-    for i in range(1, batch_size):
+    for i in range(2, batch_size):
         if "F" in operators:
             score = evaluation_fn(traces, F_end=i, batch_size=batch_size, operators=operators)
         elif "G_avg" in operators:
@@ -83,9 +83,8 @@ def hill_climbing_search(traces, batch_size, operators, evaluation_fn, max_iters
 
 def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, initial_temp=100, cooling_rate=0.95, max_iters=1000):
     np.random.seed(42)
-    # Random starting point
-    current_x = np.random.randint(1, batch_size)
-    current_y = np.random.randint(1, batch_size)
+    current_x = np.random.randint(2, batch_size)
+    current_y = np.random.randint(2, batch_size)
     current_score = evaluation_fn(traces, batch_size, operators, current_x, current_y)
     
     best_x, best_y = current_x, current_y
@@ -96,8 +95,8 @@ def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, ini
     for _ in range(max_iters):
         next_x = current_x + random.choice([-1, 1])
         next_y = current_y + random.choice([-1, 1])
-        next_x = np.clip(next_x, 1, batch_size - 1)
-        next_y = np.clip(next_y, 1, batch_size - 1)
+        next_x = np.clip(next_x, 2, batch_size - 1)
+        next_y = np.clip(next_y, 2, batch_size - 1)
         
         next_score = evaluation_fn(traces, batch_size, operators, next_x, next_y)
         delta_score = next_score - current_score
@@ -110,5 +109,4 @@ def simulated_annealing_search(traces, batch_size, operators, evaluation_fn, ini
         temperature *= cooling_rate
         if temperature < 1e-3:
             break
-    
     return best_x, best_y

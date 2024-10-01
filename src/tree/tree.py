@@ -1,6 +1,6 @@
 print("Loading code for decision tree construction...")
 import numpy as np
-from tree.new_formula import FormulaFactory
+from tree.formula import FormulaFactory
 import random
 import json
 with open("config.json") as file:
@@ -101,9 +101,7 @@ def choose_formula(traces: np.ndarray, batch_size, operators: list, binary=False
         H_1 = stl_entropy(left_lab, left_rob, right_lab, right_rob)
         H_2 = entropy(left_lab, right_lab)
         beta = tree_config["BETA"]
-        # beta = 5
         epsilon = 1e-7
-        # F_beta = (1 + beta ** 2) * H_1 * H_2 / ((beta ** 2 * H_1 + H_2) + epsilon)
         F_beta = H_1 + H_2 / beta
         if F_beta < best_entropy:
             best_formula = formula

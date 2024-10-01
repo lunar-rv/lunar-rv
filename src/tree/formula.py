@@ -27,6 +27,7 @@ class Predicate(ABC):
 class F(Predicate):
     def __init__(self, boundary, end):
         super().__init__(boundary, end)
+        self.name = "F"
     def evaluate(self, traces, labels=False):
         traces = traces[:, :-1].astype(float) if labels else traces
         traces = np.abs(traces)
@@ -51,6 +52,7 @@ class F(Predicate):
 class G_avg(Predicate):
     def __init__(self, boundary, end):
         super().__init__(boundary, end)
+        self.name = "G_avg"
     def __repr__(self):
         return f"mean[0, {self.end}) error <= {self.boundary}"
     def evaluate(self, traces, labels=False):
@@ -74,8 +76,9 @@ class G_avg(Predicate):
 class G(Predicate):
     def __init__(self, boundary, end=None):
         super().__init__(boundary, None)
+        self.name = "G"
     def __repr__(self):
-        return f"error <= {self.boundary}"
+        return f"always error <= {self.boundary}"
     def human_readable(self, time_period):
         return f"The error must always be below {self.boundary}"
     def evaluate(self, traces, labels=False):
@@ -119,7 +122,7 @@ class Formula:
         return len(list(self)) == 1 and list(self)[0] == self.g
     def evaluate_single(self, trace, raw_values: np.ndarray, labels=True, return_arr=False):
         raw_values = raw_values.reshape(1, -1)
-        traces_arr = trace.reshape(1, -1)
+        traces_arr = np.reshape(trace, (1, -1))
         traces_arr = np.hstack((self.last_residuals, traces_arr)) if self.last_residuals is not None else traces_arr
         raw_values = np.hstack((self.last_raw_values, raw_values)) if self.last_raw_values is not None else raw_values
         if self.last_residuals is None or self.max_length <= traces_arr.shape[1]:
@@ -191,3 +194,22 @@ class FormulaFactory:
                     for b in boundaries:
                         add_options(end, operator, b)
         return all_options
+
+def main():
+    phi_1 = G_avg(boundary=0.5, end=5)
+    phi_2 = F(boundary=0.7, end=5)
+    phi_3 = G(boundary=1.2)
+    formula = Formula(g=phi_3, f=phi_2, g_avg=phi_1)
+    trace = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    raw_values = np.array([0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0])
+    evaluations = formula.evaluate_single(trace, raw_values, labels=False)
+    print("E1", evaluations)
+    trace = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    evaluations = formula.evaluate_single(trace, raw_values, labels=False)
+    print("E2", evaluations)
+    trace = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    evaluations = formula.evaluate_single(trace, raw_values, labels=False)
+    print("E3", evaluations)
+
+if __name__ == "__main__":
+    main()

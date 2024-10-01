@@ -3,15 +3,13 @@ import numpy as np
 from synth import positive_synth
 from graphs import plot_array
 from tree.tree import TreeNode
-from tree.bin_class import build, update
 import warnings
-from file_io import write_new_batch, write_weights, get_filename
+from file_io import write_weights, get_filename
 import json
 from scipy import stats
 from regressor import LargeWeightsRegressor
-from ui import print_anomaly_info, get_and_display_anomaly_times, get_time_period
+from ui import get_and_display_anomaly_times, get_time_period
 import os
-from tree.new_formula import Formula
 
 model = LargeWeightsRegressor()
 with open('config.json', 'r') as file:
@@ -33,7 +31,6 @@ def get_residuals(
     write_weights(model, sensor_type=sensor_type)
     predictions = model.predict(X_test)
     residuals = predictions - Y_test
-    # return np.abs(residuals)
     return residuals
 
 def get_safety_dist(sensor_index, sensor_type=None) -> float:
@@ -43,12 +40,13 @@ def get_safety_dist(sensor_index, sensor_type=None) -> float:
     mu = np.mean(safe_traces)
     return mu, sigma
 
-def quantitative_rob(evaluations: dict, residuals: np.ndarray) -> bool:
+def qualitative_rob(evaluations: dict, residuals: np.ndarray, backlog_size: int) -> bool:
     epsilon = 1e-6
     for key, value in evaluations.items():
         if value.min() < -epsilon:
-            if key.__class__.__name__ == "G":
-                if residuals.max() <= key.boundary + epsilon:
+            if key.name == "G":
+                day_data = residuals[backlog_size:]
+                if np.abs(day_data).max() <= key.boundary + epsilon:
                     continue
             return False
     return True
@@ -60,34 +58,44 @@ def new_batch_ok(residuals, start_index: int, formula=None, new_batch: list = No
     raw_data = preprocess_trace(new_batch=new_batch)
     sensor_values = raw_data[:, start_index + sensor_index]
     backlog_size: int = formula.last_residuals.size if formula.last_residuals is not None else 0
+    # print("R", residuals.shape, "LR", formula.last_residuals.shape if formula.last_residuals is not None else None)
+    old_sensor_values = sensor_values.copy()
+    old_residuals = residuals.copy()
     if backlog_size != 0:
-        old_residuals = np.hstack((formula.last_residuals.flatten(), residuals))
-        old_sensor_values = np.hstack((formula.last_raw_values.flatten(), sensor_values))
-    else:
-        old_residuals = residuals
-        old_sensor_values = sensor_values
-    evaluations = formula.evaluate_single(residuals, labels=False, raw_values=sensor_values)
-    if quantitative_rob(evaluations, residuals=residuals):
-        return True    
+        residuals = np.hstack((formula.last_residuals.flatten(), residuals))
+        sensor_values = np.hstack((formula.last_raw_values.flatten(), sensor_values))
+    evaluations = formula.evaluate_single(old_residuals, labels=False, raw_values=old_sensor_values)
+    # for key, value in evaluations.items():
+    #     print(key, value.shape)
+    if qualitative_rob(evaluations, residuals=residuals, backlog_size=backlog_size):
+        return True
     if print_info:
         print("Failed to satisfy formula: ", formula)
-        mean_res = np.round(residuals.mean(), 4)
+        mean_res = np.abs(np.round(residuals.mean(), 4))
         mu, sigma = get_safety_dist(sensor_index, sensor_type)
         mean_safety_prob = np.round(stats.norm.cdf(mean_res, mu, sigma), 4)
-        print(f"Likelihood of average residuals of {mean_res} or higher: {1-mean_safety_prob}")
+        print(f"Likelihood of average residual size of {mean_res} or higher: {1-mean_safety_prob}")
     if config["PLOT_ANOMALY_GRAPHS"]:
         for i in range(len(list(formula))):
             phi = formula[i]
-            this_evaluation = evaluations[phi][0]#[:shortest_length]
+            this_evaluation = evaluations[phi][0]
             if this_evaluation.min() >= 0:
                 continue
+            if phi.name == "G":
+                if np.abs(old_residuals).max() <= phi.boundary:
+                    continue
+            # print("THIS_EVAL_SHAPE:", this_evaluation.shape)
+            # print("THIS_EVAL:", this_evaluation)
             anomaly_start_indices = np.where(this_evaluation < 0)[0].tolist()
+            # print("ASI:", anomaly_start_indices)
             end = phi.end if phi.end is not None else formula.max_length
             bounds, batch_start_time = get_and_display_anomaly_times(anomaly_start_indices, phi, new_batch, prev_backlog_size=backlog_size, end=end)
-            bounds = np.array(bounds) + backlog_size
-            preds = old_sensor_values + old_residuals
+            if phi.name == "G":
+                graph_size = len(residuals)
+                bounds = [backlog_size, graph_size],
+            preds = sensor_values + residuals
             plot_array(
-                trace=old_sensor_values,
+                trace=sensor_values,
                 sensor_index=sensor_index,
                 keyword="Actual Sensor Values",
                 bounds=bounds,
@@ -98,7 +106,7 @@ def new_batch_ok(residuals, start_index: int, formula=None, new_batch: list = No
                 preds=preds
             )
             plot_array(
-                trace=np.abs(old_residuals), 
+                trace=np.abs(residuals), 
                 sensor_index=sensor_index, 
                 keyword="Magnitude of Residuals", 
                 formula=phi,
@@ -114,46 +122,14 @@ def new_batch_ok(residuals, start_index: int, formula=None, new_batch: list = No
 def update_spec(
     sensor_index,
     operators,
-    bin_classifier=None,
-    new_trace=None,
-    new_label=None,
     formulae=[],
     sensor_type=None,
 ) -> tuple:
-    def build_full_formula(phi):
-        operator = phi.__class__.__name__.lower()
-        spec = Formula(**{operator:bin_classifier.formula})
-        last_formula = formulae[sensor_index]
-        spec.last_residuals = last_formula.last_residuals
-        spec.last_raw_values = last_formula.last_raw_values
-        return spec
     spec_file = get_filename("specs", sensor_index, suffix=".stl", remove_plural=True, sensor_type=sensor_type)
     residuals_file = get_filename("residuals", sensor_index, sensor_type=sensor_type)
-    anomalies_file = get_filename("anomalies", sensor_index, sensor_type=sensor_type)
     positive_traces = np.genfromtxt(residuals_file, delimiter=",", dtype=float)
-    try:
-        negative_traces = np.genfromtxt(anomalies_file, delimiter=",")
-    except FileNotFoundError:
-        negative_traces = np.array([])
-    if len(negative_traces) < config["WARMUP_ANOMALIES"] or negative_traces.ndim == 1:
-        prev_formula = formulae[sensor_index] if len(formulae) > sensor_index else None
-        spec = positive_synth(traces=positive_traces, prev_formula=prev_formula, operators=operators)
-    elif len(negative_traces) == config["WARMUP_ANOMALIES"]:
-        negative_values = negative_traces[:, :-1].astype(float)
-        bin_classifier = build(positive_traces, negative_values, operators=operators)
-        try:
-            spec = build_full_formula(bin_classifier.formula)
-        except TypeError:
-            print(bin_classifier)
-            print(bin_classifier.formula)
-            bin_classifier.print_tree()
-            print("==")
-            print(negative_values.shape)
-            print(positive_traces.shape)
-            exit()
-    else:
-        bin_classifier = update(bin_classifier, new_trace, new_label, operators=operators)
-        spec = build_full_formula(phi=bin_classifier.formula)
+    prev_formula = formulae[sensor_index] if len(formulae) > sensor_index else None
+    spec = positive_synth(traces=positive_traces, prev_formula=prev_formula, operators=operators)
     formulae[sensor_index] = spec
     if not os.path.exists(spec_file):
         with open(spec_file, "w"):
@@ -161,11 +137,11 @@ def update_spec(
     with open(spec_file, "r+") as s:
         old_spec = s.read()
         if old_spec == repr(spec):
-            return formulae, bin_classifier
+            return formulae
         s.seek(0)
         s.write(repr(spec))
         s.truncate()
-    return formulae, bin_classifier
+    return formulae
 
 
 def log_anomaly(

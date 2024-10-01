@@ -1,12 +1,11 @@
 print("Loading formula synthesis functions...")
 import searching
-from tree.new_formula import FormulaFactory
+from tree.formula import FormulaFactory
 import numpy as np
 import json
 with open("config.json") as config_file:
     config = json.load(config_file)
 
-# FIX THE CLOSENESS FUNCTION.
 contraction_fn = lambda r, b, max_size: r * np.exp((0.5 * b / max_size)-0.5)
 
 def evaluate_formula(traces, batch_size, operators, F_end=None, G_avg_end=None):
@@ -57,28 +56,3 @@ def positive_synth(traces, operators, prev_formula=None):
         best_formula.last_raw_values = lrv
         best_formula.last_residuals = lr
     return best_formula
-
-def main():
-    import telex.synth as tx
-    import time
-    from formula import Formula
-    import matplotlib.pyplot as plt
-    traces = np.genfromtxt("inputs/pressure_residuals.csv", delimiter=",", dtype=float)
-    traces = traces[:2, :]
-    traces *= 1000
-    # print(traces.shape)
-    formula1 = positive_synth(traces)
-    formula2 = Formula.build_formula(0.01247759930412972, "F", 3, "<=")
-    eval1 = formula1.evaluate3(traces, labels=False).flatten()
-    eval2 = formula2.evaluate3(traces, labels=False).flatten()
-    plt.plot(eval1, label="New positive synthesis")
-    plt.plot(eval2, label="TeLEx")
-    plt.legend()
-    plt.title("Robustness of synthesised formulae on pressure residual traces over 2 days")
-    plt.xlabel("Time")
-    plt.ylabel("Robustness")
-    plt.show()
-    exit()
-
-if __name__ == "__main__":
-    main()
