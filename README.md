@@ -91,11 +91,11 @@ The STL formula information for anomaly detection is to be interpreted as follow
 - G_avg/G_bar/mean:
 ![G_avg graph](./examples/g_avg.png)
     - G_avg[0, 80) error < 1.51603... means that the size of the error must *on average* be below 1.51603... during every period of 80 consecutive time steps (here, 20 hours). 
-    - The shading of the period from 00:45 to 23:45 indicates that the *G_avg* subformula was violated during the periods 00:45-20:45, 01:00-21:00, 01:15-21:15... 3:45-23:45. 
+    - The shading of the period from 00:45 to 23:45 indicates that the *G_avg* subformula was violated during the periods 00:45-20:30, 01:00-20:45, 01:15-21:00... 04:00-23:45. 
     - This operator also helps to detect longer-lasting anomalies, and is more robust to noise than the *F* operator.
     - In some cases, there might be multiple periods of violation within the batch, which may overlap:
 
 ![Graph showing overlap](./examples/overlap.png)
 
-- In this graph, the formula G_avg[0, 69) error < 0.248382... was violated in every period of length 17h 15m STARTING between 09:00 and 17:45 on Jan 22nd, *and* every period of the same length STARTING between 20:30 and 23:45 on the 22nd. Since the end points of the first set of violations (02:15-11:00) overlap with the second set of violations, the shaded areas overlap, resulting in a darker yellow area between 20:30 and 11:00.
+- In this graph, the formula G_avg[0, 69) error < 0.248382... was violated in every period of length 17h 15m STARTING between 09:00 and 17:45 on Jan 22nd, *and* every period of the same length STARTING between 20:30 and 23:45 on the 22nd. Since the affected intervals of the first set of violations (22/01/23 09:00 to 23/01/23 11:00) overlap with the second set of violations (22/01/23 20:30 to 23/01/23 17:00), the shaded areas overlap, resulting in a darker yellow area between 20:30 and 11:00.
 
