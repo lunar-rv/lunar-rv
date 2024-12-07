@@ -8,7 +8,7 @@ To set up the tool, carry out the following:
 
 ```bash
 # Clone the repository
-git clone git@github.com:julius-gasson/lunar.git
+git clone git@github.com:rv-lunar/lunar.git
 
 # Navigate to the project directory
 cd lunar
