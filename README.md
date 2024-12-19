@@ -11,7 +11,7 @@ To set up the tool, carry out the following:
 git clone git@github.com:lunar-rv/lunar-rv.git
 
 # Navigate to the project directory
-cd lunar
+cd lunar-rv
 
 # Install dependencies
 pip install -r requirements.txt
