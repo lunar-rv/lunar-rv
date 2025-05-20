@@ -53,7 +53,7 @@ def progress_bar(index, warmup_stage: int, warmup_times: list, bar_length=40):
     progress = float(index) / float(total_time)
     block = int(bar_length * progress)
     text = (
-        f"\rWarm-up {warmup_stage}: Press Enter to continue... "
+        f"\rLearning phase {warmup_stage}: Press Enter to continue... "
         f"[{index}/{total_time}] "
         f"[{'#' * block + '-' * (bar_length - block)}]"
     )
@@ -127,6 +127,6 @@ def print_intro(types: list, warmup_times: tuple):
     print("  - 'p'   : Display the STL anomaly detection formula for a sensor.")
     print("=" * 65)
     print("\nNote:")
-    print(f"  - There are two 'warm-up' phases of length {' and '.join(warmup_times)},")
+    print(f"  - There are two learning phases of length {' and '.join(warmup_times)},")
     print("    which must be completed before monitoring begins.")
     print("=" * 65) 

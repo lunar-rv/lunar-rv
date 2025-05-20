@@ -1,4 +1,5 @@
 from preproc import preprocess_trace
+import pandas as pd
 import numpy as np
 from synth import positive_synth
 from graphs import plot_array
@@ -69,6 +70,9 @@ def new_batch_ok(residuals, start_index: int, formula=None, new_batch: list = No
     #     print(key, value.shape)
     if qualitative_rob(evaluations, residuals=residuals, backlog_size=backlog_size):
         return True
+    if config["CLEAR_ON_ANOMALY"]:
+        formula.last_residuals = None
+        formula.last_raw_values = None
     if print_info:
         print("Failed to satisfy formula: ", formula)
         mean_res = np.abs(np.round(residuals.mean(), 4))

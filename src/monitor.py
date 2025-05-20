@@ -59,14 +59,14 @@ def monitor_loop(parser) -> None:
             if index >= parser.w_1:
                 warmup1 = False
                 warmup2 = True
-                print("\nWarm-up 1 complete.")
+                print("\nLearning phase 1 complete.")
             write_new_batch(new_batch=new_batch, outfile=safe_trace_file)
             continue
         if warmup2:
             progress_bar(warmup_stage=2, index = index - parser.w_1, warmup_times=warmup_times)
             if index >= parser.w_1 + parser.w_2:
                 warmup2 = False
-                print("\nWarm-up complete.")
+                print("\nLearning phase complete.")
         test = preprocess_trace(new_batch=new_batch)
         train = preprocess_trace(infile=safe_trace_file)
         for i, sensor_type in enumerate(parser.type):

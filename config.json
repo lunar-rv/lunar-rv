@@ -20,5 +20,8 @@
     "TREE_CONFIG": {
         "MAX_DEPTH": 5,
         "BETA": 5
-    }
+    },
+    "MAX_F_BOUND": 48,
+    "MIN_GBAR_BOUND": 72,
+    "CLEAR_ON_ANOMALY": true
   }
